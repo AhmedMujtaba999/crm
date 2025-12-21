@@ -15,4 +15,7 @@ final ThemeData appTheme = ThemeData(
   useMaterial3: true,
   scaffoldBackgroundColor: AppColors.bg,
   colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
+  textTheme: const TextTheme(
+    bodyMedium: TextStyle(color: AppColors.text),
+  ),
 );

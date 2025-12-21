@@ -3,16 +3,14 @@ import 'theme.dart';
 
 class GradientHeader extends StatelessWidget {
   final String title;
-  final Widget? child;
-  final String? subtitle;
   final bool showBack;
+  final Widget? child;
 
   const GradientHeader({
     super.key,
     required this.title,
-    this.child,
-    this.subtitle,
     this.showBack = false,
+    this.child,
   });
 
   @override
@@ -44,17 +42,42 @@ class GradientHeader extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.arrow_back, color: Colors.white),
             ),
-          Text(title, style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w700)),
-          if (subtitle != null) ...[
-            const SizedBox(height: 6),
-            Text(subtitle!, style: const TextStyle(color: Colors.white70)),
-          ],
+          Text(
+            title,
+            style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800),
+          ),
           if (child != null) ...[
             const SizedBox(height: 14),
             child!,
           ],
         ],
       ),
+    );
+  }
+}
+
+class CardBox extends StatelessWidget {
+  final String title;
+  final Widget child;
+
+  const CardBox({super.key, required this.title, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(color: Color(0x11000000), blurRadius: 12, offset: Offset(0, 6)),
+        ],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        const SizedBox(height: 12),
+        child,
+      ]),
     );
   }
 }
@@ -81,25 +104,17 @@ class PillSwitch extends StatelessWidget {
       height: 54,
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
+        color: Colors.white.withOpacity(0.20),
         borderRadius: BorderRadius.circular(28),
       ),
       child: Row(
         children: [
           Expanded(
-            child: _pill(
-              selected: leftSelected,
-              text: leftText,
-              onTap: onLeft,
-            ),
+            child: _pill(selected: leftSelected, text: leftText, onTap: onLeft),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: _pill(
-              selected: !leftSelected,
-              text: rightText,
-              onTap: onRight,
-            ),
+            child: _pill(selected: !leftSelected, text: rightText, onTap: onRight),
           ),
         ],
       ),
@@ -120,33 +135,8 @@ class PillSwitch extends StatelessWidget {
           text,
           style: TextStyle(
             color: selected ? AppColors.primary : Colors.white,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class PrimaryButton extends StatelessWidget {
-  final String text;
-  final VoidCallback onTap;
-  final IconData? icon;
-
-  const PrimaryButton({super.key, required this.text, required this.onTap, this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 54,
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: onTap,
-        icon: icon == null ? const SizedBox.shrink() : Icon(icon, color: Colors.white),
-        label: Text(text, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
     );
@@ -171,30 +161,61 @@ class AppTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(color: AppColors.subText, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: keyboard,
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon),
-            hintText: hint,
-            filled: true,
-            fillColor: Colors.white,
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.primary),
-            ),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(
+        children: [
+          Icon(icon, color: AppColors.subText, size: 18),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(color: AppColors.subText, fontWeight: FontWeight.w700)),
+        ],
+      ),
+      const SizedBox(height: 8),
+      TextField(
+        controller: controller,
+        keyboardType: keyboard,
+        decoration: InputDecoration(
+          hintText: hint,
+          filled: true,
+          fillColor: Colors.white,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.primary),
           ),
         ),
-      ],
+      ),
+    ]);
+  }
+}
+
+class GradientButton extends StatelessWidget {
+  final String text;
+  final VoidCallback onTap;
+
+  const GradientButton({super.key, required this.text, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: 54,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppColors.primary, AppColors.primary2],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.center,
+        child: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+      ),
     );
   }
 }
@@ -207,8 +228,8 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.description_outlined, size: 60, color: Colors.grey),
-        const SizedBox(height: 12),
+        const Icon(Icons.description_outlined, size: 56, color: Colors.grey),
+        const SizedBox(height: 10),
         Text(text, style: const TextStyle(color: Colors.grey, fontSize: 16)),
       ]),
     );
@@ -233,10 +254,13 @@ class ServiceRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w700))),
-          Text("\$${amount.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(width: 10),
-          IconButton(onPressed: onDelete, icon: const Icon(Icons.close, color: Colors.red)),
+          Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800))),
+          Text("\$${amount.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: onDelete,
+            child: const Icon(Icons.close, color: Colors.red, size: 18),
+          ),
         ],
       ),
     );

@@ -17,50 +17,72 @@ class AppDb {
     final path = join(await getDatabasesPath(), 'poolpro_crm.db');
     _db = await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, _) async {
-        await db.execute('''
-          CREATE TABLE work_items (
-            id TEXT PRIMARY KEY,
-            status TEXT,
-            createdAt TEXT,
-            customerName TEXT,
-            phone TEXT,
-            email TEXT,
-            address TEXT,
-            notes TEXT,
-            total REAL,
-            beforePhotoPath TEXT,
-            afterPhotoPath TEXT
-          )
-        ''');
-
-        await db.execute('''
-          CREATE TABLE services (
-            id TEXT PRIMARY KEY,
-            workItemId TEXT,
-            name TEXT,
-            amount REAL
-          )
-        ''');
-
-        await db.execute('''
-          CREATE TABLE tasks (
-            id TEXT PRIMARY KEY,
-            title TEXT,
-            customerName TEXT,
-            phone TEXT,
-            email TEXT,
-            address TEXT,
-            createdAt TEXT
-          )
-        ''');
+        await _createTables(db);
+      },
+      onUpgrade: (db, oldV, newV) async {
+        // Simple reset upgrade for dev phase
+        await db.execute('DROP TABLE IF EXISTS work_items');
+        await db.execute('DROP TABLE IF EXISTS services');
+        await db.execute('DROP TABLE IF EXISTS tasks');
+        await _createTables(db);
       },
     );
   }
 
-  // ---------------- Work Items ----------------
+  Future<void> _createTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE work_items (
+        id TEXT PRIMARY KEY,
+        status TEXT,
+        createdAt TEXT,
+        customerName TEXT,
+        phone TEXT,
+        email TEXT,
+        address TEXT,
+        notes TEXT,
+        total REAL,
+        beforePhotoPath TEXT,
+        afterPhotoPath TEXT
+      )
+    ''');
 
+    await db.execute('''
+      CREATE TABLE services (
+        id TEXT PRIMARY KEY,
+        workItemId TEXT,
+        name TEXT,
+        amount REAL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE tasks (
+        id TEXT PRIMARY KEY,
+        title TEXT,
+        customerName TEXT,
+        phone TEXT,
+        email TEXT,
+        address TEXT,
+        createdAt TEXT
+      )
+    ''');
+  }
+
+  // ---------------- Customer exists check ----------------
+  Future<bool> customerExists({required String phone, required String email}) async {
+    final rows = await db.query(
+      'work_items',
+      columns: ['id'],
+      where: '(phone = ? AND phone != "") OR (email = ? AND email != "")',
+      whereArgs: [phone, email],
+      limit: 1,
+    );
+    return rows.isNotEmpty;
+  }
+
+  // ---------------- Work Items ----------------
   Future<void> insertWorkItem(WorkItem item, List<ServiceItem> services) async {
     final d = db;
 
@@ -70,33 +92,35 @@ class AppDb {
     }
 
     // TODO BACKEND (Node.js):
-    // POST /work-items (item + services)
+    // POST /work-items  (item + services)
   }
 
-  Future<List<WorkItem>> listWorkItems(String status) async {
+  Future<List<WorkItem>> listWorkItemsByStatus(String status) async {
     final rows = await db.query(
       'work_items',
       where: 'status = ?',
       whereArgs: [status],
-      orderBy: 'createdAt DESC',
+      orderBy: 'createdAt DESC', // ✅ latest first
     );
     return rows.map(WorkItem.fromMap).toList();
   }
 
+  Future<WorkItem?> getWorkItem(String id) async {
+    final rows = await db.query('work_items', where: 'id = ?', whereArgs: [id], limit: 1);
+    if (rows.isEmpty) return null;
+    return WorkItem.fromMap(rows.first);
+  }
+
   Future<List<ServiceItem>> listServices(String workItemId) async {
-    final rows = await db.query(
-      'services',
-      where: 'workItemId = ?',
-      whereArgs: [workItemId],
-    );
+    final rows = await db.query('services', where: 'workItemId = ?', whereArgs: [workItemId]);
     return rows.map(ServiceItem.fromMap).toList();
   }
 
-  Future<void> markCompleted(String id) async {
-    await db.update('work_items', {'status': 'completed'}, where: 'id = ?', whereArgs: [id]);
+  Future<void> markCompleted(String workItemId) async {
+    await db.update('work_items', {'status': 'completed'}, where: 'id = ?', whereArgs: [workItemId]);
 
     // TODO BACKEND (Node.js):
-    // PATCH /work-items/:id  {status: "completed"}
+    // PATCH /work-items/:id {status:"completed"}
   }
 
   Future<void> updatePhotos({
@@ -115,7 +139,6 @@ class AppDb {
   }
 
   // ---------------- Tasks ----------------
-
   Future<void> seedTasksIfEmpty() async {
     final c = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM tasks')) ?? 0;
     if (c > 0) return;

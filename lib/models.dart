@@ -39,7 +39,6 @@ class WorkItem {
 
   final double total;
 
-  // optional photo paths (local storage)
   final String? beforePhotoPath;
   final String? afterPhotoPath;
 

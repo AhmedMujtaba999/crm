@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import 'storage.dart';
 import 'models.dart';
 import 'widgets.dart';
-import 'theme.dart';
 import 'create.dart';
 
 class TasksPage extends StatefulWidget {
@@ -23,7 +22,7 @@ class _TasksPageState extends State<TasksPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Column(children: [
-        GradientHeader(title: "Tasks", subtitle: "Pending tasks"),
+        const GradientHeader(title: "Tasks"),
         Expanded(
           child: FutureBuilder<List<TaskItem>>(
             future: _load(),
@@ -36,38 +35,7 @@ class _TasksPageState extends State<TasksPage> {
                 padding: const EdgeInsets.all(16),
                 itemCount: list.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (_, i) {
-                  final t = list[i];
-                  final date = DateFormat('M/d/y').format(t.createdAt);
-
-                  return Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: const [BoxShadow(color: Color(0x11000000), blurRadius: 12, offset: Offset(0, 6))],
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(t.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                            const SizedBox(height: 6),
-                            Text(t.customerName, style: const TextStyle(color: AppColors.subText)),
-                            const SizedBox(height: 4),
-                            Text(t.phone, style: const TextStyle(color: AppColors.subText)),
-                            const SizedBox(height: 10),
-                            Text("Created $date", style: const TextStyle(color: Colors.grey)),
-                          ]),
-                        ),
-                        TextButton(
-                          onPressed: () => _openTaskSheet(t),
-                          child: const Text("Open"),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+                itemBuilder: (_, i) => _taskCard(list[i]),
               );
             },
           ),
@@ -76,89 +44,93 @@ class _TasksPageState extends State<TasksPage> {
     );
   }
 
-  void _openTaskSheet(TaskItem task) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
-      builder: (_) => _TaskSheet(
-        task: task,
-        onDelete: () async {
-          await AppDb.instance.deleteTask(task.id);
-          if (mounted) setState(() {});
-          Navigator.pop(context);
-        },
-        onActivate: () {
-          Navigator.pop(context);
-
-          // open create screen with prefill
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => CreateWorkItemPage(prefillTask: task),
-            ),
-          );
-        },
+  Widget _taskCard(TaskItem t) {
+    final date = DateFormat('M/d/y').format(t.createdAt);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [BoxShadow(color: Color(0x11000000), blurRadius: 12, offset: Offset(0, 6))],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(t.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              const SizedBox(height: 6),
+              Text(t.customerName, style: const TextStyle(color: Colors.grey)),
+              const SizedBox(height: 4),
+              Text(t.phone, style: const TextStyle(color: Colors.grey)),
+              const SizedBox(height: 10),
+              Text("Created $date", style: const TextStyle(color: Colors.grey)),
+            ]),
+          ),
+          TextButton(
+            onPressed: () => _openTaskMenu(t),
+            child: const Text("Open"),
+          ),
+        ],
       ),
     );
   }
-}
 
-class _TaskSheet extends StatelessWidget {
-  final TaskItem task;
-  final VoidCallback onActivate;
-  final VoidCallback onDelete;
-
-  const _TaskSheet({required this.task, required this.onActivate, required this.onDelete});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+  void _openTaskMenu(TaskItem task) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
             Expanded(child: Text(task.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18))),
             IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
           ]),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
 
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text("Customer Information", style: TextStyle(color: AppColors.subText, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 8),
-              Text(task.customerName),
-              Text(task.phone),
-              Text(task.email),
-              Text(task.address),
-            ]),
+          // View task (just show info)
+          ListTile(
+            leading: const Icon(Icons.visibility_outlined),
+            title: const Text("View Task", style: TextStyle(fontWeight: FontWeight.w800)),
+            onTap: () {
+              Navigator.pop(context);
+              showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: Text(task.title),
+                  content: Text(
+                    "${task.customerName}\n${task.phone}\n${task.email}\n${task.address}",
+                  ),
+                ),
+              );
+            },
           ),
 
-          const SizedBox(height: 14),
-
-          PrimaryButton(text: "Activate Task", icon: Icons.play_arrow, onTap: onActivate),
-          const SizedBox(height: 10),
-
-          TextButton.icon(
-            onPressed: onDelete,
-            icon: const Icon(Icons.delete, color: Colors.red),
-            label: const Text("Delete Task", style: TextStyle(color: Colors.red, fontWeight: FontWeight.w800)),
+          // Delete task
+          ListTile(
+            leading: const Icon(Icons.delete_outline, color: Colors.red),
+            title: const Text("Delete Task", style: TextStyle(fontWeight: FontWeight.w800, color: Colors.red)),
+            onTap: () async {
+              await AppDb.instance.deleteTask(task.id);
+              if (mounted) setState(() {});
+              if (Navigator.canPop(context)) Navigator.pop(context);
+            },
           ),
 
-          const SizedBox(height: 6),
-          const Text(
-            "Activating will create a new work item with pre-filled customer details",
-            style: TextStyle(color: Colors.grey),
-            textAlign: TextAlign.center,
+          // Activate task
+          ListTile(
+            leading: const Icon(Icons.play_arrow_outlined),
+            title: const Text("Activate Task", style: TextStyle(fontWeight: FontWeight.w800)),
+            subtitle: const Text("Will open Create page with prefilled customer"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => CreateWorkItemPage(prefillTask: task)),
+              );
+            },
           ),
-        ],
+        ]),
       ),
     );
   }
