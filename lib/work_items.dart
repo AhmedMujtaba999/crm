@@ -3,53 +3,33 @@ import 'widgets.dart';
 import 'theme.dart';
 import 'storage.dart';
 import 'models.dart';
-import 'create.dart';
-import 'tasks.dart';
-
-class HomeShell extends StatefulWidget {
-  const HomeShell({super.key});
-
-  @override
-  State<HomeShell> createState() => _HomeShellState();
-}
-
-class _HomeShellState extends State<HomeShell> {
-  int index = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    final pages = [
-      const CreateWorkItemPage(),
-      const WorkItemsPage(),
-      const TasksPage(),
-    ];
-
-    return Scaffold(
-      body: pages[index],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: index,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: Colors.grey,
-        onTap: (i) => setState(() => index = i),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.add), label: "Create"),
-          BottomNavigationBarItem(icon: Icon(Icons.description_outlined), label: "Work Items"),
-          BottomNavigationBarItem(icon: Icon(Icons.check_box_outlined), label: "Tasks"),
-        ],
-      ),
-    );
-  }
-}
 
 class WorkItemsPage extends StatefulWidget {
-  const WorkItemsPage({super.key});
+  final bool initialCompleted;
+  const WorkItemsPage({super.key, this.initialCompleted = false});
 
   @override
   State<WorkItemsPage> createState() => _WorkItemsPageState();
 }
 
 class _WorkItemsPageState extends State<WorkItemsPage> {
-  bool activeSelected = true;
+  late bool activeSelected;
+
+  @override
+  void initState() {
+    super.initState();
+    activeSelected = !widget.initialCompleted; // initial tab
+  }
+
+  @override
+  void didUpdateWidget(covariant WorkItemsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialCompleted != widget.initialCompleted) {
+      setState(() {
+        activeSelected = !widget.initialCompleted;
+      });
+    }
+  }
 
   Future<List<WorkItem>> _load() {
     return AppDb.instance.listWorkItemsByStatus(activeSelected ? 'active' : 'completed');
@@ -83,7 +63,7 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
                 padding: const EdgeInsets.all(16),
                 itemCount: list.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (_, i) => _workCard(list[i]),
+                itemBuilder: (_, i) => _workCard(list[i], completed: !activeSelected),
               );
             },
           ),
@@ -92,25 +72,52 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
     );
   }
 
-  Widget _workCard(WorkItem it) {
+  Widget _workCard(WorkItem it, {required bool completed}) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [BoxShadow(color: Color(0x11000000), blurRadius: 12, offset: Offset(0, 6))],
+        boxShadow: const [
+          BoxShadow(color: Color(0x11000000), blurRadius: 12, offset: Offset(0, 6)),
+        ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(it.customerName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                it.customerName,
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              completed ? Icons.check_circle : Icons.timelapse,
+              size: 18,
+              color: completed ? Colors.green : Colors.orange,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              completed ? "Completed" : "Active",
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: completed ? Colors.green : Colors.orange,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 6),
         Text(it.phone, style: const TextStyle(color: Colors.grey)),
         const SizedBox(height: 10),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(activeSelected ? "Active" : "Completed", style: const TextStyle(color: Colors.grey)),
             Text("\$${it.total.toStringAsFixed(2)}",
                 style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900)),
+            if (completed)
+              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
           ],
         ),
       ]),
