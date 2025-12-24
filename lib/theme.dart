@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AppColors {
   static const primary = Color(0xFF2F5BFF);
@@ -11,6 +12,7 @@ class AppColors {
   static const border = Color(0xFFE5E7EB);
 }
 
+/// ✅ App theme
 final ThemeData appTheme = ThemeData(
   useMaterial3: true,
   scaffoldBackgroundColor: AppColors.bg,
@@ -19,3 +21,14 @@ final ThemeData appTheme = ThemeData(
     bodyMedium: TextStyle(color: AppColors.text),
   ),
 );
+
+/// ✅ Call this ONCE (in main.dart)
+void setupSystemUI() {
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Color.fromARGB(0, 163, 129, 129), // 👈 no color behind status bar
+      statusBarIconBrightness: Brightness.dark, // 👈 black icons (battery/wifi)
+      statusBarBrightness: Brightness.light, // iOS
+    ),
+  );
+}

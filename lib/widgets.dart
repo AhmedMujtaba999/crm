@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
 
+/// ✅ Header starts AFTER the status bar (status bar area stays plain/empty)
 class GradientHeader extends StatelessWidget {
   final String title;
   final bool showBack;
@@ -15,47 +16,53 @@ class GradientHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 14,
-        left: 18,
-        right: 18,
-        bottom: 18,
-      ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.primary2],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(28),
-          bottomRight: Radius.circular(28),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (showBack)
-            IconButton(
-              padding: EdgeInsets.zero,
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
+    final top = MediaQuery.of(context).padding.top;
+
+    return Column(
+      children: [
+        // ✅ keep status bar area clean (no gradient)
+        SizedBox(height: top),
+
+        // ✅ gradient starts below status bar
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.only(left: 18, right: 18, top: 14, bottom: 18),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, AppColors.primary2],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 30,
-              fontWeight: FontWeight.w800,
-            ),
+            // borderRadius: BorderRadius.only(
+            //  // bottomLeft: Radius.circular(28),
+            //  // bottomRight: Radius.circular(28),
+            // ),
           ),
-          if (child != null) ...[
-            const SizedBox(height: 14),
-            child!,
-          ],
-        ],
-      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showBack)
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                ),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (child != null) ...[
+                const SizedBox(height: 14),
+                child!,
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -74,24 +81,14 @@ class CardBox extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         boxShadow: const [
-          BoxShadow(
-            color: Color(0x11000000),
-            blurRadius: 12,
-            offset: Offset(0, 6),
-          ),
+          BoxShadow(color: Color(0x11000000), blurRadius: 12, offset: Offset(0, 6)),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        const SizedBox(height: 12),
+        child,
+      ]),
     );
   }
 }
@@ -123,31 +120,15 @@ class PillSwitch extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(
-            child: _pill(
-              selected: leftSelected,
-              text: leftText,
-              onTap: onLeft,
-            ),
-          ),
+          Expanded(child: _pill(selected: leftSelected, text: leftText, onTap: onLeft)),
           const SizedBox(width: 10),
-          Expanded(
-            child: _pill(
-              selected: !leftSelected,
-              text: rightText,
-              onTap: onRight,
-            ),
-          ),
+          Expanded(child: _pill(selected: !leftSelected, text: rightText, onTap: onRight)),
         ],
       ),
     );
   }
 
-  Widget _pill({
-    required bool selected,
-    required String text,
-    required VoidCallback onTap,
-  }) {
+  Widget _pill({required bool selected, required String text, required VoidCallback onTap}) {
     return InkWell(
       borderRadius: BorderRadius.circular(24),
       onTap: onTap,
@@ -187,46 +168,37 @@ class AppTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: AppColors.subText, size: 18),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.subText,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: keyboard,
-          decoration: InputDecoration(
-            hintText: hint,
-            filled: true,
-            fillColor: Colors.white,
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppColors.primary),
-            ),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(
+        children: [
+          Icon(icon, color: AppColors.subText, size: 18),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(color: AppColors.subText, fontWeight: FontWeight.w700)),
+        ],
+      ),
+      const SizedBox(height: 8),
+      TextField(
+        controller: controller,
+        keyboardType: keyboard,
+        decoration: InputDecoration(
+          hintText: hint,
+          filled: true,
+          fillColor: Colors.white,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.primary),
           ),
         ),
-      ],
-    );
+      ),
+    ]);
   }
 }
 
-/// ✅ FIXED BUTTON (100% TAP RELIABLE)
+/// ✅ FIX: Button is ALWAYS clickable (ElevatedButton), no InkWell-tap issue
 class GradientButton extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
@@ -281,21 +253,11 @@ class EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.description_outlined,
-            size: 56,
-            color: Colors.grey,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            text,
-            style: const TextStyle(color: Colors.grey, fontSize: 16),
-          ),
-        ],
-      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.description_outlined, size: 56, color: Colors.grey),
+        const SizedBox(height: 10),
+        Text(text, style: const TextStyle(color: Colors.grey, fontSize: 16)),
+      ]),
     );
   }
 }
@@ -305,12 +267,7 @@ class ServiceRow extends StatelessWidget {
   final double amount;
   final VoidCallback onDelete;
 
-  const ServiceRow({
-    super.key,
-    required this.name,
-    required this.amount,
-    required this.onDelete,
-  });
+  const ServiceRow({super.key, required this.name, required this.amount, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -323,16 +280,8 @@ class ServiceRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              name,
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
-          Text(
-            "\$${amount.toStringAsFixed(2)}",
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
+          Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800))),
+          Text("\$${amount.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.w800)),
           const SizedBox(width: 8),
           InkWell(
             onTap: onDelete,
