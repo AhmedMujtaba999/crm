@@ -1,78 +1,79 @@
 import 'package:flutter/material.dart';
-import 'widgets.dart';
-import 'theme.dart';
 import 'storage.dart';
 import 'models.dart';
+import 'widgets.dart';
+import 'theme.dart';
 
 class WorkItemsPage extends StatefulWidget {
-  final bool initialCompleted;
-  const WorkItemsPage({super.key, this.initialCompleted = false});
+  final String? initialTab; // 'active' or 'completed'
+  const WorkItemsPage({super.key, this.initialTab});
 
   @override
   State<WorkItemsPage> createState() => _WorkItemsPageState();
 }
 
 class _WorkItemsPageState extends State<WorkItemsPage> {
-  late bool activeSelected;
+  bool activeSelected = true;
 
   @override
   void initState() {
     super.initState();
-    activeSelected = !widget.initialCompleted; // initial tab
+    if (widget.initialTab == 'completed') activeSelected = false;
+    if (widget.initialTab == 'active') activeSelected = true;
   }
 
-  @override
-  void didUpdateWidget(covariant WorkItemsPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialCompleted != widget.initialCompleted) {
-      setState(() {
-        activeSelected = !widget.initialCompleted;
-      });
-    }
-  }
-
-  Future<List<WorkItem>> _load() {
-    return AppDb.instance.listWorkItemsByStatus(activeSelected ? 'active' : 'completed');
+  Future<List<WorkItem>> _load() async {
+    final status = activeSelected ? 'active' : 'completed';
+    // ✅ IMPORTANT: show latest first
+    return AppDb.instance.listWorkItemsByStatus(status);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(children: [
-        GradientHeader(
-          title: "Work Items",
-          child: PillSwitch(
-            leftSelected: activeSelected,
-            leftText: "Active",
-            rightText: "Completed",
-            onLeft: () => setState(() => activeSelected = true),
-            onRight: () => setState(() => activeSelected = false),
+      backgroundColor: AppColors.bg,
+      body: Column(
+        children: [
+          GradientHeader(
+            title: "Work Items",
+            child: PillSwitch(
+              leftSelected: activeSelected,
+              leftText: "Active",
+              rightText: "Completed",
+              onLeft: () => setState(() => activeSelected = true),
+              onRight: () => setState(() => activeSelected = false),
+            ),
           ),
-        ),
-        Expanded(
-          child: FutureBuilder<List<WorkItem>>(
-            future: _load(),
-            builder: (context, snap) {
-              if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-              final list = snap.data!;
-              if (list.isEmpty) {
-                return EmptyState(text: activeSelected ? "No active work items" : "No completed work items");
-              }
+          Expanded(
+            child: FutureBuilder<List<WorkItem>>(
+              future: _load(),
+              builder: (context, snap) {
+                if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+                final list = snap.data!;
+                if (list.isEmpty) {
+                  return EmptyState(
+                    text: activeSelected ? "No active work items" : "No completed work items",
+                  );
+                }
 
-              return ListView.separated(
-                padding: const EdgeInsets.all(16),
-                itemCount: list.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (_, i) => _workCard(list[i], completed: !activeSelected),
-              );
-            },
+                return RefreshIndicator(
+                  onRefresh: () async => setState(() {}),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: list.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (_, i) => _workCard(list[i]),
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 
-  Widget _workCard(WorkItem it, {required bool completed}) {
+  Widget _workCard(WorkItem it) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -89,21 +90,30 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
               child: Text(
                 it.customerName,
                 style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
-                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 10),
-            Icon(
-              completed ? Icons.check_circle : Icons.timelapse,
-              size: 18,
-              color: completed ? Colors.green : Colors.orange,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              completed ? "Completed" : "Active",
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color: completed ? Colors.green : Colors.orange,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: activeSelected ? AppColors.primary.withOpacity(0.10) : Colors.green.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    activeSelected ? Icons.timelapse : Icons.check_circle,
+                    size: 16,
+                    color: activeSelected ? AppColors.primary : Colors.green.shade700,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    activeSelected ? "Active" : "Completed",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: activeSelected ? AppColors.primary : Colors.green.shade700,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -114,10 +124,14 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("\$${it.total.toStringAsFixed(2)}",
-                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900)),
-            if (completed)
-              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+            Text(
+              "Total",
+              style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w700),
+            ),
+            Text(
+              "\$${it.total.toStringAsFixed(2)}",
+              style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900),
+            ),
           ],
         ),
       ]),

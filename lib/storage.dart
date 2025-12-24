@@ -82,6 +82,36 @@ class AppDb {
     return rows.isNotEmpty;
   }
 
+  /// If a customer already exists, check if there's an active work item for them.
+  /// Returns the work item id if found, otherwise null.
+  Future<String?> findLatestActiveWorkItemId({required String phone, required String email}) async {
+    final rows = await db.query(
+      'work_items',
+      columns: ['id'],
+      where: 'status = ? AND ((phone = ? AND phone != "") OR (email = ? AND email != ""))',
+      whereArgs: ['active', phone, email],
+      orderBy: 'createdAt DESC',
+      limit: 1,
+    );
+
+    if (rows.isEmpty) return null;
+    return rows.first['id'] as String?;
+  }
+
+  /// Returns the most recent work item for the given customer (by phone or email), or null if none.
+  Future<WorkItem?> findLatestWorkItemByCustomer({required String phone, required String email}) async {
+    final rows = await db.query(
+      'work_items',
+      where: '((phone = ? AND phone != "") OR (email = ? AND email != ""))',
+      whereArgs: [phone, email],
+      orderBy: 'createdAt DESC',
+      limit: 1,
+    );
+
+    if (rows.isEmpty) return null;
+    return WorkItem.fromMap(rows.first);
+  }
+
   // ---------------- Work Items ----------------
   Future<void> insertWorkItem(WorkItem item, List<ServiceItem> services) async {
     final d = db;
