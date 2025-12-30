@@ -23,14 +23,16 @@ class PdfPreviewPage extends StatelessWidget {
         build: (format) async => pdfBytes,
         canChangeOrientation: false,
         canChangePageFormat: false,
-        actions: [
-          PdfPreviewAction(
-            icon: const Icon(Icons.share),
-            onPressed: (context, build, pageFormat) async {
-              await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
-            },
-          ),
-        ],
+      // actions: [
+      //     PdfPreviewAction(
+      //       icon: Icon(Icons.file_download),
+      //       onPressed: (context, build, pageFormat) async {
+      //         final bytes = await build(pageFormat);
+      //         await Printing.sharePdf(bytes: pdfBytes, filename: fileName);
+      //       },
+      //     ),
+      //   ],
+      // ),
       ),
     );
   }

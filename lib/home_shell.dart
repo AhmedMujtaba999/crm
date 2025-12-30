@@ -37,20 +37,24 @@ class _HomeShellState extends State<HomeShell> {
  Widget? _buildFab(){
   if(index==1){
     // Work Items Tab
-    return FloatingActionButton(onPressed: (){
-      //TODO : navigate to add work item screen
-      // do nothing for now
-    },
-    child: const Icon(Icons.add),
+    return FloatingActionButton(
+      heroTag: null,
+      onPressed: (){
+        //TODO : navigate to add work item screen
+        // do nothing for now
+      },
+      child: const Icon(Icons.add),
     );
   } 
   if(index==2){
     // Tasks Tab
-    return FloatingActionButton(onPressed: (){
-      //TODO : navigate to add task screen
-      // do nothing for now
-    },
-    child: const Icon(Icons.add_task),
+    return FloatingActionButton(
+      heroTag: null,
+      onPressed: (){
+        //TODO : navigate to add task screen
+        // do nothing for now
+      },
+      child: const Icon(Icons.add_task),
     );
   }
 return null;  

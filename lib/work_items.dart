@@ -57,7 +57,9 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
                 }
 
                 return RefreshIndicator(
-                  onRefresh: () async => setState(() {}),
+                  onRefresh: () async {
+                    setState(() {});
+                    },
                   child: ListView.separated(
                     padding: const EdgeInsets.all(16),
                     itemCount: list.length,

@@ -253,9 +253,18 @@ class _InvoicePageState extends State<InvoicePage> {
               : "This will mark the work item as completed.",
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text("Complete")),
-        ],
+           Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+              const SizedBox(width: 12),
+              FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text("Complete")),
+            ],
+            ),
+            ],
+        //   TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+        //   FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text("Complete")),
+        
       ),
     );
 
@@ -393,35 +402,61 @@ class _InvoicePageState extends State<InvoicePage> {
       ),
     );
   }
-
   Widget _actionRow() {
-    return Row(
+    return Padding(
+  padding: const EdgeInsets.all(4),
+  child: Container(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
       children: [
         Expanded(
-          child: OutlinedButton.icon(
-            onPressed: _previewPdf,
-            icon: const Icon(Icons.picture_as_pdf),
-            label: const Text("Preview"),
+          child: InkWell(
+            onTap: (_item == null || _completing) ? null : _previewPdf, 
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.picture_as_pdf),
+                SizedBox(height: 4),
+                Text("Preview"),
+              ],
+            ),
           ),
         ),
-        const SizedBox(width: 10),
         Expanded(
-          child: OutlinedButton.icon(
-            onPressed: _sharePdf,
-            icon: const Icon(Icons.share),
-            label: const Text("Share"),
+          child: InkWell(
+            onTap: (_item == null || _completing) ? null : _sharePdf,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.share),
+                SizedBox(height: 4),
+                Text("Share"),
+              ],
+            ),
           ),
         ),
-        const SizedBox(width: 10),
         Expanded(
-          child: OutlinedButton.icon(
-            onPressed: _savePdf,
-            icon: const Icon(Icons.download),
-            label: const Text("Save"),
+          child: InkWell(
+            onTap: (_item == null || _completing) ? null : _savePdf,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.download),
+                SizedBox(height: 4),
+                Text("Save"),
+              ],
+            ),
           ),
         ),
       ],
-    );
+    ),
+  ),
+);
+
   }
 
   Widget _invoiceCard() {
