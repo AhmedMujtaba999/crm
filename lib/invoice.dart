@@ -50,10 +50,8 @@ class _InvoicePageState extends State<InvoicePage> {
   String? _readWorkItemId() {
     final args = ModalRoute.of(context)?.settings.arguments;
 
-    // Accept String directly
     if (args is String && args.trim().isNotEmpty) return args.trim();
 
-    // Accept Map form: {'id': '...'}
     if (args is Map && args['id'] is String) {
       final id = (args['id'] as String).trim();
       if (id.isNotEmpty) return id;
@@ -80,7 +78,6 @@ class _InvoicePageState extends State<InvoicePage> {
         _item = item;
         _services = services;
         _loading = false;
-        // Auto-enable 'Send Email' by default when a customer email exists
         sendEmail = (item == null) ? false : item.email.trim().isNotEmpty;
       });
     } catch (e) {
@@ -101,9 +98,8 @@ class _InvoicePageState extends State<InvoicePage> {
         imageQuality: 75,
       );
 
-      if (savedPath == null) return; // user cancelled
+      if (savedPath == null) return;
 
-      // Optional: delete old file to avoid storage bloat
       final oldPath = before ? _item!.beforePhotoPath : _item!.afterPhotoPath;
       await _photoService.safeDeleteFile(oldPath);
 
@@ -128,17 +124,7 @@ class _InvoicePageState extends State<InvoicePage> {
       final oldPath = before ? _item!.beforePhotoPath : _item!.afterPhotoPath;
       await _photoService.safeDeleteFile(oldPath);
 
-      await AppDb.instance.updatePhotos(
-        workItemId: _item!.id,
-        beforePath: before ? null : null,
-        afterPath: before ? null : null,
-      );
-
-      // Above sets nothing; your DB method likely expects explicit null handling.
-      // If your updatePhotos cannot "clear" with null, use empty string:
-      // beforePath: before ? "" : null, afterPath: before ? null : ""
-
-      // So do this safer:
+      // ✅ clear photo path properly
       await AppDb.instance.updatePhotos(
         workItemId: _item!.id,
         beforePath: before ? "" : null,
@@ -253,18 +239,15 @@ class _InvoicePageState extends State<InvoicePage> {
               : "This will mark the work item as completed.",
         ),
         actions: [
-           Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
               const SizedBox(width: 12),
               FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text("Complete")),
             ],
-            ),
-            ],
-        //   TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
-        //   FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text("Complete")),
-        
+          ),
+        ],
       ),
     );
 
@@ -316,7 +299,6 @@ class _InvoicePageState extends State<InvoicePage> {
     setState(() => _completing = true);
 
     try {
-      // Send email is optional. If it fails, we notify and still complete (common CRM behavior).
       if (sendEmail) {
         try {
           await _sendEmailWithInvoice();
@@ -402,61 +384,61 @@ class _InvoicePageState extends State<InvoicePage> {
       ),
     );
   }
+
   Widget _actionRow() {
     return Padding(
-  padding: const EdgeInsets.all(4),
-  child: Container(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: InkWell(
-            onTap: (_item == null || _completing) ? null : _previewPdf, 
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.picture_as_pdf),
-                SizedBox(height: 4),
-                Text("Preview"),
-              ],
-            ),
-          ),
+      padding: const EdgeInsets.all(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
         ),
-        Expanded(
-          child: InkWell(
-            onTap: (_item == null || _completing) ? null : _sharePdf,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.share),
-                SizedBox(height: 4),
-                Text("Share"),
-              ],
+        child: Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: (_item == null || _completing) ? null : _previewPdf,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.picture_as_pdf),
+                    SizedBox(height: 4),
+                    Text("Preview"),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
-        Expanded(
-          child: InkWell(
-            onTap: (_item == null || _completing) ? null : _savePdf,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.download),
-                SizedBox(height: 4),
-                Text("Save"),
-              ],
+            Expanded(
+              child: InkWell(
+                onTap: (_item == null || _completing) ? null : _sharePdf,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.share),
+                    SizedBox(height: 4),
+                    Text("Share"),
+                  ],
+                ),
+              ),
             ),
-          ),
+            Expanded(
+              child: InkWell(
+                onTap: (_item == null || _completing) ? null : _savePdf,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.download),
+                    SizedBox(height: 4),
+                    Text("Save"),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
-    ),
-  ),
-);
-
+      ),
+    );
   }
 
   Widget _invoiceCard() {
@@ -493,7 +475,6 @@ class _InvoicePageState extends State<InvoicePage> {
         const Divider(height: 26),
         const Text("Services", style: TextStyle(color: AppColors.subText, fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
-
         if (_services.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 10),
@@ -511,7 +492,6 @@ class _InvoicePageState extends State<InvoicePage> {
                   ],
                 ),
               )),
-
         const Divider(height: 26),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -571,7 +551,6 @@ class _InvoicePageState extends State<InvoicePage> {
           children: [
             Checkbox(
               value: sendEmail,
-              // Disable the checkbox when there is no customer email to avoid confusion
               onChanged: _completing || _item!.email.trim().isEmpty ? null : (v) => setState(() => sendEmail = v ?? false),
             ),
             const Expanded(child: Text("Send Email", style: TextStyle(fontWeight: FontWeight.w900))),
@@ -580,7 +559,10 @@ class _InvoicePageState extends State<InvoicePage> {
         if (_item!.email.trim().isEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 6),
-            child: Text("No customer email on file — add an email to enable sending.", style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+            child: Text(
+              "No customer email on file — add an email to enable sending.",
+              style: TextStyle(color: Colors.redAccent, fontSize: 12),
+            ),
           ),
       ]),
     );
