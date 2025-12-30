@@ -3,6 +3,7 @@ import 'create.dart';
 import 'work_items.dart';
 import 'tasks.dart';
 import 'theme.dart';
+import 'storage.dart';
 
 /// args example:
 /// Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false,
@@ -24,35 +25,54 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   late int index;
-  //TODO: Replace these with real values from DB/ state management
-  int pendingTasksCount = 5;
-  int activeWorkItemsCount = 6;
+  // TODO: Replace these with real values from DB/ state management
+  int pendingTasksCount = 0;
+  int activeWorkItemsCount = 0;
 
   @override
   void initState() {
     super.initState();
     index = widget.initialTab;
+    _loadCounts();
+  }
+
+  Future<void> _loadCounts() async {
+    await AppDb.instance.seedTasksIfEmpty();
+    final tasks = await AppDb.instance.listTasks();
+    final work = await AppDb.instance.listWorkItemsByStatus('active');
+    final today = DateTime.now();
+    bool isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+    if (!mounted) return;
+    setState(() {
+      pendingTasksCount = tasks.where((t) => isSameDay(t.scheduledAt, today)).length;
+      activeWorkItemsCount = work.length;
+    });
   }
  // Floating action Button FAB per TAB 
  Widget? _buildFab(){
-  if(index==1){
-    // Work Items Tab
-    return FloatingActionButton(onPressed: (){
-      //TODO : navigate to add work item screen
-      // do nothing for now
-    },
-    child: const Icon(Icons.add),
-    );
-  } 
-  if(index==2){
-    // Tasks Tab
-    return FloatingActionButton(onPressed: (){
-      //TODO : navigate to add task screen
-      // do nothing for now
+  // if(index==1){
+  //   // Work Items Tab
+  //   return FloatingActionButton(
+  //     heroTag: null,
+  //     onPressed: (){
+  //       //TODO : navigate to add work item screen
+  //       // do nothing for now
+  //     },
+  //     child: const Icon(Icons.add),
+  //   );
+  // } 
+ if (index == 2) {
+  return FloatingActionButton(
+    heroTag: null,
+    onPressed: () async {
+      final created = await Navigator.pushNamed(context, '/task_create');
+      // created == true means task saved → refresh UI
+      if (created == true && mounted) setState(() {});
     },
     child: const Icon(Icons.add_task),
-    );
-  }
+  );
+}
+
 return null;  
   }
 

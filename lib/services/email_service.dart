@@ -14,6 +14,12 @@ class EmailService {
       throw Exception("Customer email is empty.");
     }
 
+    // Basic email format validation to catch obvious problems early
+    final emailRe = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    if (!emailRe.hasMatch(emailAddr)) {
+      throw Exception("Customer email is not a valid email address: $emailAddr");
+    }
+
     final attachments = <String>[pdfPath];
 
     if (attachPhotos) {

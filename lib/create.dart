@@ -1,6 +1,8 @@
 import 'package:crm/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'models.dart';
+import 'package:uuid/uuid.dart';
 import 'storage.dart';
 import 'widgets.dart';
 
@@ -21,14 +23,23 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
   final addressC = TextEditingController();
   final notesC = TextEditingController();
 
+  final _formKey = GlobalKey<FormState>();
   final amountC = TextEditingController();
+
+  bool _isSaving = false;
 
   // If user selects "Create New" for an existing customer, we remember the phone
   // so the next Save will create the new work item without re-showing the dialog.
   String? _confirmedCreateForPhone;
 
-  Future<CustomerExistsAction> showCustomerExistsDialog(BuildContext context, String phone, String email) async {
-    final existing = await AppDb.instance.findLatestWorkItemByCustomer(phone: phone, email: email);
+  Future<CustomerExistsAction> showCustomerExistsDialog(
+    BuildContext context,
+    String phone,
+    String email,
+  ) async {
+    final normPhone = phone.replaceAll(RegExp(r'\D'), '');
+    final normEmail = email.trim().toLowerCase();
+    final existing = await AppDb.instance.findLatestWorkItemByCustomer(phone: normPhone, email: normEmail);
 
     final res = await showDialog<CustomerExistsAction>(
       context: context,
@@ -47,7 +58,10 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
                     Container(
                       width: 46,
                       height: 46,
-                      decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(12)),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: const Icon(Icons.person, color: Colors.white, size: 28),
                     ),
                     const SizedBox(width: 12),
@@ -62,11 +76,14 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
                 ),
                 const SizedBox(height: 12),
 
-                // Show a small preview of the existing customer/work item to help the user decide
                 if (existing != null)
                   Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFEFEFEF))),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFEFEFEF)),
+                    ),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(existing.customerName, style: const TextStyle(fontWeight: FontWeight.w900)),
                       const SizedBox(height: 6),
@@ -83,30 +100,36 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
                 ),
                 const SizedBox(height: 16),
 
-                Row(children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context, CustomerExistsAction.cancel),
-                      child: const Text('Cancel'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 46,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context, CustomerExistsAction.openExisting),
+                          child: const Text("Open Existing"),
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context, CustomerExistsAction.openExisting),
-                      style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFFBFC7D8))),
-                      child: const Text('Open Existing'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SizedBox(
+                        height: 46,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context, CustomerExistsAction.createNew),
+                          child: const Text("Create New"),
+                        ),
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context, CustomerExistsAction.cancel),
+                    child: const Text("Cancel"),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context, CustomerExistsAction.createNew),
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                      child: const Text('Create New', style: TextStyle(color: Colors.white)),
-                    ),
-                  ),
-                ])
+                ),
               ],
             ),
           ),
@@ -141,11 +164,9 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
       addressC.text = t.address;
     }
 
-    // Clear the confirmation when the phone changes so we don't accidentally
-    // create for a different customer than the one the user confirmed.
     phoneC.addListener(() {
-      final current = phoneC.text.trim();
-      if (_confirmedCreateForPhone != null && current != _confirmedCreateForPhone) {
+      final currentNormalized = phoneC.text.trim().replaceAll(RegExp(r'\D'), '');
+      if (_confirmedCreateForPhone != null && currentNormalized != _confirmedCreateForPhone) {
         setState(() => _confirmedCreateForPhone = null);
       }
     });
@@ -162,17 +183,66 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
     super.dispose();
   }
 
+  Widget _buildTextFormField({
+    required String label,
+    required String hint,
+    required IconData icon,
+    required TextEditingController controller,
+    TextInputType keyboard = TextInputType.text,
+    String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
+    int maxLines = 1,
+  }) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(
+        children: [
+          Icon(icon, color: AppColors.subText, size: 18),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(color: AppColors.subText, fontWeight: FontWeight.w700)),
+        ],
+      ),
+      const SizedBox(height: 8),
+      TextFormField(
+        controller: controller,
+        keyboardType: keyboard,
+        validator: validator,
+        inputFormatters: inputFormatters,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          hintText: hint,
+          filled: true,
+          fillColor: Colors.white,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: AppColors.primary),
+          ),
+        ),
+      ),
+    ]);
+  }
+
   void addService() {
     final amt = double.tryParse(amountC.text.trim());
     if (selectedService == 'Select service') return;
     if (amt == null || amt <= 0) return;
 
+    final amtRounded = (amt * 100).round() / 100.0;
+
+    if (services.any((s) => s.name == selectedService)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Service already added')));
+      return;
+    }
+
     setState(() {
       services.add(ServiceItem(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        id: const Uuid().v4(),
         workItemId: 'temp',
         name: selectedService,
-        amount: amt,
+        amount: amtRounded,
       ));
       amountC.clear();
       selectedService = 'Select service';
@@ -180,95 +250,122 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
   }
 
   Future<void> saveWorkItem() async {
-    final name = nameC.text.trim();
-    if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Customer name is required")));
-      return;
-    }
+    final valid = _formKey.currentState?.validate() ?? true;
+    if (!valid) return;
+
     if (services.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Add at least one service")));
       return;
     }
 
-    final phone = phoneC.text.trim();
-    final email = emailC.text.trim();
+    final name = nameC.text.trim();
 
-    final exists = await AppDb.instance.customerExists(phone: phone, email: email);
+    final rawPhone = phoneC.text.trim();
+    final rawEmail = emailC.text.trim();
 
-    // If the user already confirmed "Create New" for this phone, skip the dialog
-    final skipDialog = (_confirmedCreateForPhone != null && _confirmedCreateForPhone == phone);
+    final phone = rawPhone.replaceAll(RegExp(r'\D'), '');
+    final email = rawEmail.toLowerCase();
 
-    if (exists && !skipDialog) {
-      final action = await showCustomerExistsDialog(context, phone, email);
-      if (action == CustomerExistsAction.cancel) return;
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
 
-      if (action == CustomerExistsAction.openExisting) {
-        // Open the most recent work item for this customer
-        final existing = await AppDb.instance.findLatestWorkItemByCustomer(phone: phone, email: email);
-        if (existing != null) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening existing work item')));
-          Navigator.pushNamed(context, '/invoice', arguments: existing.id);
+    try {
+      bool exists = false;
+      if (phone.isNotEmpty || email.isNotEmpty) {
+        exists = await AppDb.instance.customerExists(phone: phone, email: email);
+      }
+
+      final skipDialog = (_confirmedCreateForPhone != null && _confirmedCreateForPhone == phone);
+
+      if (exists && !skipDialog) {
+        final action = await showCustomerExistsDialog(context, rawPhone, rawEmail);
+        if (action == CustomerExistsAction.cancel) {
+          setState(() => _isSaving = false);
           return;
         }
-        // If none found, fall-through and create new
-      }
 
-      if (action == CustomerExistsAction.createNew) {
-        // Prefill basic details from the most recent customer record and let user confirm/save
-        final existing = await AppDb.instance.findLatestWorkItemByCustomer(phone: phone, email: email);
-        if (existing != null) {
-          setState(() {
-            if (nameC.text.trim().isEmpty) nameC.text = existing.customerName;
-            if (phoneC.text.trim().isEmpty) phoneC.text = existing.phone;
-            if (emailC.text.trim().isEmpty) emailC.text = existing.email;
-            if (addressC.text.trim().isEmpty) addressC.text = existing.address;
+        if (action == CustomerExistsAction.openExisting) {
+          final existing = await AppDb.instance.findLatestWorkItemByCustomer(phone: phone, email: email);
+          if (existing != null) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening existing work item')));
+            setState(() => _isSaving = false);
 
-            // Remember the user's intent so that the next Save will proceed
-            _confirmedCreateForPhone = phone;
-          });
-
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Prefilled details from existing customer — review and tap Save to create new work item')));
-          return; // stop here so user can review before creating
+            // Open invoice page for that work item
+            Navigator.pushNamed(context, '/invoice', arguments: existing.id);
+            return;
+          }
         }
-        // If none found, just proceed to create
+
+        if (action == CustomerExistsAction.createNew) {
+          final existing = await AppDb.instance.findLatestWorkItemByCustomer(phone: phone, email: email);
+          if (existing != null) {
+            setState(() {
+              if (nameC.text.trim().isEmpty) nameC.text = existing.customerName;
+              if (phoneC.text.trim().isEmpty) phoneC.text = existing.phone;
+              if (emailC.text.trim().isEmpty) emailC.text = existing.email;
+              if (addressC.text.trim().isEmpty) addressC.text = existing.address;
+
+              _confirmedCreateForPhone = phone;
+            });
+
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Prefilled details — review and tap Save again to create new work item')),
+            );
+            setState(() => _isSaving = false);
+            return;
+          }
+        }
       }
+
+      if (_confirmedCreateForPhone != null && _confirmedCreateForPhone == phone) {
+        _confirmedCreateForPhone = null;
+      }
+
+      final id = const Uuid().v4();
+      final roundedTotal = (total * 100).round() / 100.0;
+
+      final item = WorkItem(
+        id: id,
+        status: 'active',
+        createdAt: DateTime.now(),
+        customerName: name,
+        phone: rawPhone,
+        email: rawEmail,
+        address: addressC.text.trim(),
+        notes: notesC.text.trim(),
+        total: roundedTotal,
+      );
+
+      final mapped = services
+          .map((s) => ServiceItem(
+                id: s.id,
+                workItemId: id,
+                name: s.name,
+                amount: s.amount,
+              ))
+          .toList();
+
+      await AppDb.instance.insertWorkItem(item, mapped);
+
+      if (!mounted) return;
+
+      // ✅ REQUIRED: after saving, go to Work Items -> Active
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/home',
+        (route) => false,
+        arguments: {'tab': 1, 'workTab': 'active'},
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Save failed: ${e.toString()}")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
-
-    // If user confirmed create new for this phone, proceed and then clear the flag
-    if (_confirmedCreateForPhone != null && _confirmedCreateForPhone == phone) {
-      _confirmedCreateForPhone = null; // consume it so next save is normal
-    }
-
-    final id = DateTime.now().microsecondsSinceEpoch.toString();
-
-    final item = WorkItem(
-      id: id,
-      status: 'active',
-      createdAt: DateTime.now(),
-      customerName: name,
-      phone: phone,
-      email: email,
-      address: addressC.text.trim(),
-      notes: notesC.text.trim(),
-      total: total,
-    );
-
-    final mapped = services
-        .map((s) => ServiceItem(
-              id: s.id,
-              workItemId: id,
-              name: s.name,
-              amount: s.amount,
-            ))
-        .toList();
-
-    await AppDb.instance.insertWorkItem(item, mapped);
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Work item created")));
-    Navigator.pushNamed(context, '/invoice', arguments: id);
   }
 
   @override
@@ -282,19 +379,58 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
             child: Column(children: [
               CardBox(
                 title: "Customer Details",
-                child: Column(children: [
-                  AppTextField(label: "Customer Name", hint: "Enter customer name", icon: Icons.person_outline, controller: nameC),
-                  const SizedBox(height: 12),
-                  AppTextField(label: "Phone Number", hint: "Enter phone number", icon: Icons.phone_outlined, controller: phoneC, keyboard: TextInputType.phone),
-                  const SizedBox(height: 12),
-                  AppTextField(label: "Email", hint: "Enter email address", icon: Icons.email_outlined, controller: emailC, keyboard: TextInputType.emailAddress),
-                  const SizedBox(height: 12),
-                  AppTextField(label: "Address", hint: "Enter address", icon: Icons.location_on_outlined, controller: addressC),
-                ]),
+                child: Form(
+                  key: _formKey,
+                  child: Column(children: [
+                    _buildTextFormField(
+                      label: "Customer Name",
+                      hint: "Enter customer name",
+                      icon: Icons.person_outline,
+                      controller: nameC,
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Customer name is required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTextFormField(
+                      label: "Phone Number",
+                      hint: "Enter phone number",
+                      icon: Icons.phone_outlined,
+                      controller: phoneC,
+                      keyboard: TextInputType.phone,
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s\-\(\)]'))],
+                      validator: (v) {
+                        final t = v?.trim() ?? '';
+                        if (t.isEmpty) return null;
+                        final digits = t.replaceAll(RegExp(r'\D'), '');
+                        if (digits.length < 6) return 'Enter a valid phone number';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTextFormField(
+                      label: "Email",
+                      hint: "Enter email address",
+                      icon: Icons.email_outlined,
+                      controller: emailC,
+                      keyboard: TextInputType.emailAddress,
+                      validator: (v) {
+                        final t = v?.trim() ?? '';
+                        if (t.isEmpty) return null;
+                        final re = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                        if (!re.hasMatch(t)) return 'Enter a valid email';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTextFormField(
+                      label: "Address",
+                      hint: "Enter address",
+                      icon: Icons.location_on_outlined,
+                      controller: addressC,
+                    ),
+                  ]),
+                ),
               ),
-
               const SizedBox(height: 14),
-
               CardBox(
                 title: "Services",
                 child: Column(children: [
@@ -323,7 +459,8 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
                       width: 95,
                       child: TextField(
                         controller: amountC,
-                        keyboardType: TextInputType.number,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9\.]'))],
                         decoration: InputDecoration(
                           hintText: "Amount",
                           filled: true,
@@ -374,9 +511,7 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
                   ],
                 ]),
               ),
-
               const SizedBox(height: 14),
-
               CardBox(
                 title: "Notes (Optional)",
                 child: TextField(
@@ -397,9 +532,11 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 16),
-              GradientButton(text: "Save Work Item", onTap: saveWorkItem),
+              GradientButton(
+                text: _isSaving ? "Saving…" : "Save Work Item",
+                onTap: _isSaving ? null : saveWorkItem,
+              ),
             ]),
           ),
         ),

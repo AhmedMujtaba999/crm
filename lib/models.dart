@@ -93,6 +93,7 @@ class TaskItem {
   final String email;
   final String address;
   final DateTime createdAt;
+  final DateTime scheduledAt; // when the task is scheduled for
 
   TaskItem({
     required this.id,
@@ -102,6 +103,7 @@ class TaskItem {
     required this.email,
     required this.address,
     required this.createdAt,
+    required this.scheduledAt,
   });
 
   Map<String, dynamic> toMap() => {
@@ -112,6 +114,7 @@ class TaskItem {
         'email': email,
         'address': address,
         'createdAt': createdAt.toIso8601String(),
+        'scheduledAt': scheduledAt.toIso8601String(),
       };
 
   static TaskItem fromMap(Map<String, dynamic> m) => TaskItem(
@@ -122,5 +125,6 @@ class TaskItem {
         email: m['email'],
         address: m['address'],
         createdAt: DateTime.parse(m['createdAt']),
+        scheduledAt: m['scheduledAt'] != null ? DateTime.parse(m['scheduledAt']) : DateTime.parse(m['createdAt']),
       );
 }

@@ -65,7 +65,8 @@ class AppDb {
         phone TEXT,
         email TEXT,
         address TEXT,
-        createdAt TEXT
+        createdAt TEXT,
+        scheduledAt TEXT
       )
     ''');
   }
@@ -173,6 +174,8 @@ class AppDb {
     final c = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM tasks')) ?? 0;
     if (c > 0) return;
 
+    final now = DateTime.now();
+
     final t1 = TaskItem(
       id: 't1',
       title: 'Pool Maintenance - Ahmed',
@@ -181,6 +184,7 @@ class AppDb {
       email: 'ahmed@email.com',
       address: '123 Main Street, Dubai',
       createdAt: DateTime(2024, 1, 15),
+      scheduledAt: DateTime(now.year, now.month, now.day), // one task scheduled for today
     );
 
     final t2 = TaskItem(
@@ -191,15 +195,42 @@ class AppDb {
       email: 'sameer@email.com',
       address: '456 Beach Road, Abu Dhabi',
       createdAt: DateTime(2024, 1, 16),
+      scheduledAt: DateTime(2024, 1, 16),
     );
 
     await db.insert('tasks', t1.toMap());
     await db.insert('tasks', t2.toMap());
   }
 
-  Future<List<TaskItem>> listTasks() async {
+  Future<List<TaskItem>> listTasks({DateTime? forDate}) async {
     final rows = await db.query('tasks', orderBy: 'createdAt DESC');
-    return rows.map(TaskItem.fromMap).toList();
+    var list = rows.map(TaskItem.fromMap).toList();
+
+    bool isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+
+    if (forDate != null) {
+      final fd = DateTime(forDate.year, forDate.month, forDate.day);
+      return list.where((t) => isSameDay(t.scheduledAt, fd)).toList();
+    }
+
+    // default: sort so that tasks scheduled for today appear first
+    final today = DateTime.now();
+    list.sort((a, b) {
+      final aToday = isSameDay(a.scheduledAt, today);
+      final bToday = isSameDay(b.scheduledAt, today);
+      if (aToday && !bToday) return -1;
+      if (bToday && !aToday) return 1;
+      // otherwise sort by scheduledAt desc then createdAt desc
+      final cmp = b.scheduledAt.compareTo(a.scheduledAt);
+      if (cmp != 0) return cmp;
+      return b.createdAt.compareTo(a.createdAt);
+    });
+
+    return list;
+  }
+
+  Future<void> insertTask(TaskItem task) async {
+    await db.insert('tasks', task.toMap());
   }
 
   Future<void> deleteTask(String id) async {

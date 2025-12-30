@@ -20,7 +20,27 @@ final ThemeData appTheme = ThemeData(
   textTheme: const TextTheme(
     bodyMedium: TextStyle(color: AppColors.text),
   ),
+
+   
+  elevatedButtonTheme: ElevatedButtonThemeData(
+    style: ElevatedButton.styleFrom(
+      minimumSize: const Size.fromHeight(44),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
+    ),
+  ),
+  outlinedButtonTheme: OutlinedButtonThemeData(
+    style: OutlinedButton.styleFrom(
+      minimumSize: const Size.fromHeight(44),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
+    ),
+  ),
 );
+
+
 
 /// ✅ Call this ONCE (in main.dart)
 void setupSystemUI() {
@@ -32,3 +52,5 @@ void setupSystemUI() {
     ),
   );
 }
+
+
