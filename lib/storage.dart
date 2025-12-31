@@ -17,16 +17,23 @@ class AppDb {
     final path = join(await getDatabasesPath(), 'poolpro_crm.db');
     _db = await openDatabase(
       path,
-      version: 2,
+      version: 3, // ✅ bump version so migration runs
       onCreate: (db, _) async {
         await _createTables(db);
       },
       onUpgrade: (db, oldV, newV) async {
-        // Simple reset upgrade for dev phase
-        await db.execute('DROP TABLE IF EXISTS work_items');
-        await db.execute('DROP TABLE IF EXISTS services');
-        await db.execute('DROP TABLE IF EXISTS tasks');
-        await _createTables(db);
+        // ✅ Non-destructive migrations (no dropping tables)
+        if (oldV < 3) {
+          // work_items.completedAt
+          try {
+            await db.execute('ALTER TABLE work_items ADD COLUMN completedAt TEXT');
+          } catch (_) {}
+
+          // tasks.scheduledAt (in case DB was created before you added it)
+          try {
+            await db.execute('ALTER TABLE tasks ADD COLUMN scheduledAt TEXT');
+          } catch (_) {}
+        }
       },
     );
   }
@@ -37,6 +44,7 @@ class AppDb {
         id TEXT PRIMARY KEY,
         status TEXT,
         createdAt TEXT,
+        completedAt TEXT,
         customerName TEXT,
         phone TEXT,
         email TEXT,
@@ -83,8 +91,6 @@ class AppDb {
     return rows.isNotEmpty;
   }
 
-  /// If a customer already exists, check if there's an active work item for them.
-  /// Returns the work item id if found, otherwise null.
   Future<String?> findLatestActiveWorkItemId({required String phone, required String email}) async {
     final rows = await db.query(
       'work_items',
@@ -99,7 +105,6 @@ class AppDb {
     return rows.first['id'] as String?;
   }
 
-  /// Returns the most recent work item for the given customer (by phone or email), or null if none.
   Future<WorkItem?> findLatestWorkItemByCustomer({required String phone, required String email}) async {
     final rows = await db.query(
       'work_items',
@@ -121,18 +126,20 @@ class AppDb {
     for (final s in services) {
       await d.insert('services', s.toMap());
     }
-
-    // TODO BACKEND (Node.js):
-    // POST /work-items  (item + services)
   }
 
   Future<List<WorkItem>> listWorkItemsByStatus(String status) async {
+    final order = (status == 'completed')
+        ? 'completedAt DESC, createdAt DESC'
+        : 'createdAt DESC';
+
     final rows = await db.query(
       'work_items',
       where: 'status = ?',
       whereArgs: [status],
-      orderBy: 'createdAt DESC', // ✅ latest first
+      orderBy: order,
     );
+
     return rows.map(WorkItem.fromMap).toList();
   }
 
@@ -148,10 +155,15 @@ class AppDb {
   }
 
   Future<void> markCompleted(String workItemId) async {
-    await db.update('work_items', {'status': 'completed'}, where: 'id = ?', whereArgs: [workItemId]);
-
-    // TODO BACKEND (Node.js):
-    // PATCH /work-items/:id {status:"completed"}
+    await db.update(
+      'work_items',
+      {
+        'status': 'completed',
+        'completedAt': DateTime.now().toIso8601String(), // ✅ save completed date
+      },
+      where: 'id = ?',
+      whereArgs: [workItemId],
+    );
   }
 
   Future<void> updatePhotos({
@@ -164,13 +176,18 @@ class AppDb {
     if (afterPath != null) data['afterPhotoPath'] = afterPath;
 
     await db.update('work_items', data, where: 'id = ?', whereArgs: [workItemId]);
+  }
 
-    // TODO BACKEND (Node.js):
-    // POST /work-items/:id/photos
+  Future<void> deleteWorkItem(String workItemId) async {
+    // delete services first
+    await db.delete('services', where: 'workItemId = ?', whereArgs: [workItemId]);
+    // delete work item
+    await db.delete('work_items', where: 'id = ?', whereArgs: [workItemId]);
   }
 
   // ---------------- Tasks ----------------
   Future<void> seedTasksIfEmpty() async {
+    // keep your existing implementation (unchanged)
     final c = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM tasks')) ?? 0;
     if (c > 0) return;
 
@@ -184,7 +201,7 @@ class AppDb {
       email: 'ahmed@email.com',
       address: '123 Main Street, Dubai',
       createdAt: DateTime(2024, 1, 15),
-      scheduledAt: DateTime(now.year, now.month, now.day), // one task scheduled for today
+      scheduledAt: DateTime(now.year, now.month, now.day),
     );
 
     final t2 = TaskItem(
@@ -213,14 +230,13 @@ class AppDb {
       return list.where((t) => isSameDay(t.scheduledAt, fd)).toList();
     }
 
-    // default: sort so that tasks scheduled for today appear first
+    // today first
     final today = DateTime.now();
     list.sort((a, b) {
       final aToday = isSameDay(a.scheduledAt, today);
       final bToday = isSameDay(b.scheduledAt, today);
       if (aToday && !bToday) return -1;
       if (bToday && !aToday) return 1;
-      // otherwise sort by scheduledAt desc then createdAt desc
       final cmp = b.scheduledAt.compareTo(a.scheduledAt);
       if (cmp != 0) return cmp;
       return b.createdAt.compareTo(a.createdAt);
@@ -235,8 +251,5 @@ class AppDb {
 
   Future<void> deleteTask(String id) async {
     await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
-
-    // TODO BACKEND (Node.js):
-    // DELETE /tasks/:id
   }
 }

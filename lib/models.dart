@@ -1,3 +1,73 @@
+class WorkItem {
+  final String id;
+  final String status; // 'active' | 'completed'
+  final DateTime createdAt; // Activated date = createdAt
+  final DateTime? completedAt; // Completed date
+  final String customerName;
+  final String phone;
+  final String email;
+  final String address;
+  final String notes;
+  final double total;
+
+  final String? beforePhotoPath;
+  final String? afterPhotoPath;
+
+  WorkItem({
+    required this.id,
+    required this.status,
+    required this.createdAt,
+    this.completedAt,
+    required this.customerName,
+    required this.phone,
+    required this.email,
+    required this.address,
+    required this.notes,
+    required this.total,
+    this.beforePhotoPath,
+    this.afterPhotoPath,
+  });
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'status': status,
+        'createdAt': createdAt.toIso8601String(),
+        'completedAt': completedAt?.toIso8601String(),
+        'customerName': customerName,
+        'phone': phone,
+        'email': email,
+        'address': address,
+        'notes': notes,
+        'total': total,
+        'beforePhotoPath': beforePhotoPath ?? "",
+        'afterPhotoPath': afterPhotoPath ?? "",
+      };
+
+  static WorkItem fromMap(Map<String, dynamic> m) {
+    DateTime? parseDT(dynamic v) {
+      if (v == null) return null;
+      final s = v.toString().trim();
+      if (s.isEmpty) return null;
+      return DateTime.tryParse(s);
+    }
+
+    return WorkItem(
+      id: (m['id'] ?? '').toString(),
+      status: (m['status'] ?? 'active').toString(),
+      createdAt: DateTime.parse((m['createdAt'] ?? DateTime.now().toIso8601String()).toString()),
+      completedAt: parseDT(m['completedAt']),
+      customerName: (m['customerName'] ?? '').toString(),
+      phone: (m['phone'] ?? '').toString(),
+      email: (m['email'] ?? '').toString(),
+      address: (m['address'] ?? '').toString(),
+      notes: (m['notes'] ?? '').toString(),
+      total: (m['total'] is num) ? (m['total'] as num).toDouble() : double.tryParse((m['total'] ?? '0').toString()) ?? 0,
+      beforePhotoPath: ((m['beforePhotoPath'] ?? '').toString().trim().isEmpty) ? null : (m['beforePhotoPath'] as String),
+      afterPhotoPath: ((m['afterPhotoPath'] ?? '').toString().trim().isEmpty) ? null : (m['afterPhotoPath'] as String),
+    );
+  }
+}
+
 class ServiceItem {
   final String id;
   final String workItemId;
@@ -19,69 +89,10 @@ class ServiceItem {
       };
 
   static ServiceItem fromMap(Map<String, dynamic> m) => ServiceItem(
-        id: m['id'],
-        workItemId: m['workItemId'],
-        name: m['name'],
-        amount: (m['amount'] ?? 0).toDouble(),
-      );
-}
-
-class WorkItem {
-  final String id;
-  final String status; // active | completed
-  final DateTime createdAt;
-
-  final String customerName;
-  final String phone;
-  final String email;
-  final String address;
-  final String notes;
-
-  final double total;
-
-  final String? beforePhotoPath;
-  final String? afterPhotoPath;
-
-  WorkItem({
-    required this.id,
-    required this.status,
-    required this.createdAt,
-    required this.customerName,
-    required this.phone,
-    required this.email,
-    required this.address,
-    required this.notes,
-    required this.total,
-    this.beforePhotoPath,
-    this.afterPhotoPath,
-  });
-
-  Map<String, dynamic> toMap() => {
-        'id': id,
-        'status': status,
-        'createdAt': createdAt.toIso8601String(),
-        'customerName': customerName,
-        'phone': phone,
-        'email': email,
-        'address': address,
-        'notes': notes,
-        'total': total,
-        'beforePhotoPath': beforePhotoPath,
-        'afterPhotoPath': afterPhotoPath,
-      };
-
-  static WorkItem fromMap(Map<String, dynamic> m) => WorkItem(
-        id: m['id'],
-        status: m['status'],
-        createdAt: DateTime.parse(m['createdAt']),
-        customerName: m['customerName'] ?? '',
-        phone: m['phone'] ?? '',
-        email: m['email'] ?? '',
-        address: m['address'] ?? '',
-        notes: m['notes'] ?? '',
-        total: (m['total'] ?? 0).toDouble(),
-        beforePhotoPath: m['beforePhotoPath'],
-        afterPhotoPath: m['afterPhotoPath'],
+        id: (m['id'] ?? '').toString(),
+        workItemId: (m['workItemId'] ?? '').toString(),
+        name: (m['name'] ?? '').toString(),
+        amount: (m['amount'] is num) ? (m['amount'] as num).toDouble() : double.tryParse((m['amount'] ?? '0').toString()) ?? 0,
       );
 }
 
@@ -93,7 +104,7 @@ class TaskItem {
   final String email;
   final String address;
   final DateTime createdAt;
-  final DateTime scheduledAt; // when the task is scheduled for
+  final DateTime scheduledAt;
 
   TaskItem({
     required this.id,
@@ -118,13 +129,13 @@ class TaskItem {
       };
 
   static TaskItem fromMap(Map<String, dynamic> m) => TaskItem(
-        id: m['id'],
-        title: m['title'],
-        customerName: m['customerName'],
-        phone: m['phone'],
-        email: m['email'],
-        address: m['address'],
-        createdAt: DateTime.parse(m['createdAt']),
-        scheduledAt: m['scheduledAt'] != null ? DateTime.parse(m['scheduledAt']) : DateTime.parse(m['createdAt']),
+        id: (m['id'] ?? '').toString(),
+        title: (m['title'] ?? '').toString(),
+        customerName: (m['customerName'] ?? '').toString(),
+        phone: (m['phone'] ?? '').toString(),
+        email: (m['email'] ?? '').toString(),
+        address: (m['address'] ?? '').toString(),
+        createdAt: DateTime.parse((m['createdAt'] ?? DateTime.now().toIso8601String()).toString()),
+        scheduledAt: DateTime.parse((m['scheduledAt'] ?? DateTime.now().toIso8601String()).toString()),
       );
 }

@@ -35,13 +35,14 @@ class _InvoicePageState extends State<InvoicePage> {
   bool _loading = true;
   bool _completing = false;
 
+  bool _readOnly = false; // ✅ completed items become final preview
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _init());
   }
 
-  // ---------- Helpers ----------
   void _snack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -51,12 +52,10 @@ class _InvoicePageState extends State<InvoicePage> {
     final args = ModalRoute.of(context)?.settings.arguments;
 
     if (args is String && args.trim().isNotEmpty) return args.trim();
-
     if (args is Map && args['id'] is String) {
       final id = (args['id'] as String).trim();
       if (id.isNotEmpty) return id;
     }
-
     return null;
   }
 
@@ -78,6 +77,10 @@ class _InvoicePageState extends State<InvoicePage> {
         _item = item;
         _services = services;
         _loading = false;
+
+        _readOnly = (item != null && item.status == 'completed');
+
+        // enable email checkbox only if email exists
         sendEmail = (item == null) ? false : item.email.trim().isNotEmpty;
       });
     } catch (e) {
@@ -90,6 +93,7 @@ class _InvoicePageState extends State<InvoicePage> {
   // ---------- Photos ----------
   Future<void> _pickPhoto({required bool before}) async {
     if (_item == null) return;
+    if (_readOnly) return; // ✅ no editing completed
 
     try {
       final savedPath = await _photoService.captureAndStore(
@@ -119,12 +123,13 @@ class _InvoicePageState extends State<InvoicePage> {
 
   Future<void> _deletePhoto({required bool before}) async {
     if (_item == null) return;
+    if (_readOnly) return; // ✅ no editing completed
 
     try {
       final oldPath = before ? _item!.beforePhotoPath : _item!.afterPhotoPath;
       await _photoService.safeDeleteFile(oldPath);
 
-      // ✅ clear photo path properly
+      // clear in DB using empty string
       await AppDb.instance.updatePhotos(
         workItemId: _item!.id,
         beforePath: before ? "" : null,
@@ -292,6 +297,7 @@ class _InvoicePageState extends State<InvoicePage> {
 
   Future<void> _completeWorkItem() async {
     if (_item == null || _completing) return;
+    if (_readOnly) return;
 
     final ok = await _confirmComplete();
     if (!ok) return;
@@ -332,7 +338,7 @@ class _InvoicePageState extends State<InvoicePage> {
       backgroundColor: AppColors.bg,
       body: Column(
         children: [
-          const GradientHeader(title: "Invoice Preview", showBack: true),
+          GradientHeader(title: _readOnly ? "Invoice" : "Invoice Preview", showBack: true),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -354,13 +360,16 @@ class _InvoicePageState extends State<InvoicePage> {
           ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.all(16),
-        child: GradientButton(
-          text: _completing ? "Completing..." : "Complete Work Item",
-          onTap: _completing ? () {} : _completeWorkItem,
-        ),
-      ),
+      // ✅ Hide Complete button for completed work items
+      bottomNavigationBar: _readOnly
+          ? null
+          : SafeArea(
+              minimum: const EdgeInsets.all(16),
+              child: GradientButton(
+                text: _completing ? "Completing..." : "Complete Work Item",
+                onTap: _completing ? () {} : _completeWorkItem,
+              ),
+            ),
     );
   }
 
@@ -442,7 +451,10 @@ class _InvoicePageState extends State<InvoicePage> {
   }
 
   Widget _invoiceCard() {
-    final dateText = DateFormat('EEEE, MMMM d, y').format(_item!.createdAt);
+    final createdText = DateFormat('EEE, MMM d, y • h:mm a').format(_item!.createdAt);
+    final completedText = (_item!.completedAt == null)
+        ? null
+        : DateFormat('EEE, MMM d, y • h:mm a').format(_item!.completedAt!);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -459,9 +471,13 @@ class _InvoicePageState extends State<InvoicePage> {
             borderRadius: BorderRadius.circular(14),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text("Work Item Invoice", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+            Text(_readOnly ? "Invoice" : "Work Item Invoice", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
             const SizedBox(height: 6),
-            Text(dateText, style: const TextStyle(color: Colors.white70)),
+            Text("Activated: $createdText", style: const TextStyle(color: Colors.white70)),
+            if (completedText != null) ...[
+              const SizedBox(height: 2),
+              Text("Completed: $completedText", style: const TextStyle(color: Colors.white70)),
+            ],
           ]),
         ),
         const SizedBox(height: 14),
@@ -559,10 +575,7 @@ class _InvoicePageState extends State<InvoicePage> {
         if (_item!.email.trim().isEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 6),
-            child: Text(
-              "No customer email on file — add an email to enable sending.",
-              style: TextStyle(color: Colors.redAccent, fontSize: 12),
-            ),
+            child: Text("No customer email on file — add an email to enable sending.", style: TextStyle(color: Colors.redAccent, fontSize: 12)),
           ),
       ]),
     );
@@ -574,6 +587,8 @@ class _InvoicePageState extends State<InvoicePage> {
     required VoidCallback onCapture,
     required VoidCallback onDelete,
   }) {
+    final disabled = _completing || _readOnly;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -582,7 +597,7 @@ class _InvoicePageState extends State<InvoicePage> {
         Stack(
           children: [
             InkWell(
-              onTap: _completing ? null : onCapture,
+              onTap: disabled ? null : onCapture,
               borderRadius: BorderRadius.circular(14),
               child: Container(
                 height: 160,
@@ -600,12 +615,12 @@ class _InvoicePageState extends State<InvoicePage> {
                       ),
               ),
             ),
-            if (path != null)
+            if (path != null && !_readOnly)
               Positioned(
                 right: 10,
                 top: 10,
                 child: InkWell(
-                  onTap: _completing ? null : onDelete,
+                  onTap: disabled ? null : onDelete,
                   child: Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(color: Colors.black.withOpacity(0.55), shape: BoxShape.circle),
