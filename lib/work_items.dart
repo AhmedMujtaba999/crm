@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 import 'package:flutter/material.dart';
 import 'storage.dart';
 import 'models.dart';
@@ -28,11 +30,30 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
   }
 
   Future<void> _openInvoice(WorkItem it) async {
-    // Open invoice screen
     await Navigator.pushNamed(context, '/invoice', arguments: it.id);
-
-    // When user returns, refresh list (maybe status changed to completed)
     if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _deleteWorkItem(WorkItem it) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Delete work item?"),
+        content: const Text("This will permanently delete the work item and its services."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text("Delete")),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    await AppDb.instance.deleteWorkItem(it.id);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Deleted")));
     setState(() {});
   }
 
@@ -98,58 +119,81 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
             BoxShadow(color: Color(0x11000000), blurRadius: 12, offset: Offset(0, 6)),
           ],
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  it.customerName,
-                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    it.customerName,
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                  ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: activeSelected ? AppColors.primary.withOpacity(0.10) : Colors.green.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      activeSelected ? Icons.timelapse : Icons.check_circle,
-                      size: 16,
-                      color: activeSelected ? AppColors.primary : Colors.green.shade700,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      activeSelected ? "Active" : "Completed",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
+
+                // ✅ Status pill first
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: activeSelected ? AppColors.primary.withOpacity(0.10) : Colors.green.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        activeSelected ? Icons.timelapse : Icons.check_circle,
+                        size: 16,
                         color: activeSelected ? AppColors.primary : Colors.green.shade700,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 6),
+                      Text(
+                        activeSelected ? "Active" : "Completed",
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: activeSelected ? AppColors.primary : Colors.green.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          if (it.phone.trim().isNotEmpty) Text(it.phone, style: const TextStyle(color: Colors.grey)),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "Total",
-                style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w700),
-              ),
-              Text(
-                "\$${it.total.toStringAsFixed(2)}",
-                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900),
-              ),
-            ],
-          ),
-        ]),
+
+                // ✅ 3 dots AFTER the completed pill (right side)
+                if (!activeSelected) ...[
+                  const SizedBox(width: 4),
+                  PopupMenuButton<String>(
+                    onSelected: (v) {
+                      if (v == 'delete') _deleteWorkItem(it);
+                    },
+                    icon: const Icon(Icons.more_vert),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Center(child: Text("Delete", style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 18))),
+
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 6),
+            if (it.phone.trim().isNotEmpty) Text(it.phone, style: const TextStyle(color: Colors.grey)),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Total",
+                  style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w700),
+                ),
+                Text(
+                  "\$${it.total.toStringAsFixed(2)}",
+                  style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
