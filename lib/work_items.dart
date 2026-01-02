@@ -1,5 +1,6 @@
-
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
 import 'storage.dart';
 import 'models.dart';
 import 'widgets.dart';
@@ -16,16 +17,63 @@ class WorkItemsPage extends StatefulWidget {
 class _WorkItemsPageState extends State<WorkItemsPage> {
   bool activeSelected = true;
 
+  // ✅ Completed sub-tab
+  bool completedByDateSelected = true; // By date / History
+  DateTime selectedDate = DateTime.now(); // default: today
+
   @override
   void initState() {
     super.initState();
-    if (widget.initialTab == 'completed') activeSelected = false;
+    if (widget.initialTab == 'completed') {
+      activeSelected = false;
+      completedByDateSelected = true;
+      selectedDate = DateTime.now();
+    }
     if (widget.initialTab == 'active') activeSelected = true;
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  String _dateLabel(DateTime d) {
+    final now = DateTime.now();
+    if (_isSameDay(d, now)) return "Today";
+    return DateFormat('EEE, MMM d, y').format(d);
+    // Example: Tue, Jan 2, 2026
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(now.year, now.month, now.day),
+    );
+
+    if (picked == null) return;
+    setState(() => selectedDate = picked);
   }
 
   Future<List<WorkItem>> _load() async {
     final status = activeSelected ? 'active' : 'completed';
-    return AppDb.instance.listWorkItemsByStatus(status);
+    final list = await AppDb.instance.listWorkItemsByStatus(status);
+
+    // Active tab => no extra filtering
+    if (activeSelected) return list;
+
+    // Completed -> History => show all completed
+    if (!completedByDateSelected) return list;
+
+    // Completed -> By date => filter by selectedDate (completedAt)
+    final filtered = list.where((it) {
+      final dt = it.completedAt; // ✅ completed date
+      if (dt == null) return false;
+      return _isSameDay(dt, selectedDate);
+    }).toList();
+
+    return filtered;
   }
 
   Future<void> _openInvoice(WorkItem it) async {
@@ -69,9 +117,78 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
               leftText: "Active",
               rightText: "Completed",
               onLeft: () => setState(() => activeSelected = true),
-              onRight: () => setState(() => activeSelected = false),
+              onRight: () => setState(() {
+                activeSelected = false;
+
+                // ✅ default when user opens Completed
+                completedByDateSelected = true;
+                selectedDate = DateTime.now();
+              }),
             ),
           ),
+
+          // ✅ Completed sub pills (By date / History)
+          if (!activeSelected) ...[
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x11000000), blurRadius: 10, offset: Offset(0, 5)),
+                  ],
+                ),
+                child: PillSwitch(
+                  leftSelected: completedByDateSelected,
+                  leftText: "By date",
+                  rightText: "History",
+                  onLeft: () => setState(() => completedByDateSelected = true),
+                  onRight: () => setState(() => completedByDateSelected = false),
+                ),
+              ),
+            ),
+
+            // ✅ Date picker row shown only in By date
+            if (completedByDateSelected) ...[
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: InkWell(
+                  onTap: _pickDate,
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_month_outlined, size: 18, color: AppColors.primary),
+                        const SizedBox(width: 10),
+                        const Text(
+                          "Select date",
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        const Spacer(),
+                        Text(
+                          _dateLabel(selectedDate),
+                          style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.black87),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.chevron_right, color: Colors.grey),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+
           Expanded(
             child: FutureBuilder<List<WorkItem>>(
               future: _load(),
@@ -80,9 +197,13 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
 
                 final list = snap.data!;
                 if (list.isEmpty) {
-                  return EmptyState(
-                    text: activeSelected ? "No active work items" : "No completed work items",
-                  );
+                  final msg = activeSelected
+                      ? "No active work items"
+                      : completedByDateSelected
+                          ? "No completed work items for ${_dateLabel(selectedDate)}"
+                          : "No completed work items";
+
+                  return EmptyState(text: msg);
                 }
 
                 return RefreshIndicator(
@@ -130,7 +251,7 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
                   ),
                 ),
 
-                // ✅ Status pill first
+                // Status pill
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
@@ -156,7 +277,7 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
                   ),
                 ),
 
-                // ✅ 3 dots AFTER the completed pill (right side)
+                // 3 dots only for completed
                 if (!activeSelected) ...[
                   const SizedBox(width: 4),
                   PopupMenuButton<String>(
@@ -167,8 +288,12 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
                     itemBuilder: (_) => const [
                       PopupMenuItem(
                         value: 'delete',
-                        child: Center(child: Text("Delete", style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 18))),
-
+                        child: Center(
+                          child: Text(
+                            "Delete",
+                            style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                        ),
                       ),
                     ],
                   ),
