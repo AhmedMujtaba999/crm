@@ -1,45 +1,59 @@
 import 'dart:io';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
-
 import '../models.dart';
 
 class EmailService {
   Future<void> sendInvoiceEmail({
     required WorkItem item,
     required String pdfPath,
-    required bool attachPhotos,
+    bool attachPhotos = true,
+
+    // ✅ NEW
+    List<String> beforePhotoPaths = const [],
+    List<String> afterPhotoPaths = const [],
   }) async {
-    final emailAddr = item.email.trim();
-    if (emailAddr.isEmpty) {
-      throw Exception("Customer email is empty.");
-    }
+    final recipient = item.email.trim();
+    if (recipient.isEmpty) throw Exception("Customer email is empty.");
 
-    // Basic email format validation to catch obvious problems early
-    final emailRe = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-    if (!emailRe.hasMatch(emailAddr)) {
-      throw Exception("Customer email is not a valid email address: $emailAddr");
-    }
+    final attachments = <String>[];
 
-    final attachments = <String>[pdfPath];
+    if (pdfPath.trim().isNotEmpty && File(pdfPath).existsSync()) {
+      attachments.add(pdfPath);
+    }
 
     if (attachPhotos) {
-      if (item.beforePhotoPath != null && item.beforePhotoPath!.trim().isNotEmpty) {
-        final f = File(item.beforePhotoPath!);
-        if (await f.exists()) attachments.add(f.path);
+      for (final p in beforePhotoPaths) {
+        final path = p.trim();
+        if (path.isNotEmpty && File(path).existsSync()) attachments.add(path);
       }
-      if (item.afterPhotoPath != null && item.afterPhotoPath!.trim().isNotEmpty) {
-        final f = File(item.afterPhotoPath!);
-        if (await f.exists()) attachments.add(f.path);
+      for (final p in afterPhotoPaths) {
+        final path = p.trim();
+        if (path.isNotEmpty && File(path).existsSync()) attachments.add(path);
       }
     }
 
+    final subject = "Invoice - ${item.customerName} (${_shortId(item.id)})";
+    final body = """
+Hi ${item.customerName},
+
+Please find your invoice attached.
+
+Work Item: ${_shortId(item.id)}
+Total: \$${item.total.toStringAsFixed(2)}
+
+Thank you!
+""";
+
     final email = Email(
-      body: "Hi ${item.customerName},\n\nPlease find attached your invoice.\n\nThanks,\nPoolPro CRM",
-      subject: "Invoice - ${item.customerName}",
-      recipients: [emailAddr],
+      body: body,
+      subject: subject,
+      recipients: [recipient],
       attachmentPaths: attachments,
+      isHTML: false,
     );
 
     await FlutterEmailSender.send(email);
   }
+
+  String _shortId(String id) => id.length >= 6 ? id.substring(0, 6).toUpperCase() : id.toUpperCase();
 }

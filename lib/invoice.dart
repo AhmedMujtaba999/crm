@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
@@ -11,7 +14,6 @@ import 'widgets.dart';
 import 'theme.dart';
 
 import 'pdf_preview_page.dart';
-import 'services/photo_service.dart';
 import 'services/invoice_pdf_service.dart';
 import 'services/email_service.dart';
 
@@ -23,9 +25,9 @@ class InvoicePage extends StatefulWidget {
 }
 
 class _InvoicePageState extends State<InvoicePage> {
-  final _photoService = PhotoService();
   final _pdfService = InvoicePdfService();
   final _emailService = EmailService();
+  final _picker = ImagePicker();
 
   bool attachPhotos = true;
   bool sendEmail = false;
@@ -35,7 +37,12 @@ class _InvoicePageState extends State<InvoicePage> {
   bool _loading = true;
   bool _completing = false;
 
-  bool _readOnly = false; // ✅ completed items become final preview
+  bool _readOnly = false;
+
+  // ✅ Multi before/after photos (1..20 each)
+  static const int _maxPhotosPerSection = 20;
+  List<String> _beforePhotos = [];
+  List<String> _afterPhotos = [];
 
   @override
   void initState() {
@@ -50,7 +57,6 @@ class _InvoicePageState extends State<InvoicePage> {
 
   String? _readWorkItemId() {
     final args = ModalRoute.of(context)?.settings.arguments;
-
     if (args is String && args.trim().isNotEmpty) return args.trim();
     if (args is Map && args['id'] is String) {
       final id = (args['id'] as String).trim();
@@ -73,16 +79,18 @@ class _InvoicePageState extends State<InvoicePage> {
       final services = await AppDb.instance.listServices(id);
 
       if (!mounted) return;
+
       setState(() {
         _item = item;
         _services = services;
         _loading = false;
 
         _readOnly = (item != null && item.status == 'completed');
-
-        // enable email checkbox only if email exists
         sendEmail = (item == null) ? false : item.email.trim().isNotEmpty;
       });
+
+      await _loadPhotoLists();
+      await _syncDbRepresentativePhotos(); // keep DB fields updated (first photo)
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -90,61 +98,227 @@ class _InvoicePageState extends State<InvoicePage> {
     }
   }
 
-  // ---------- Photos ----------
-  Future<void> _pickPhoto({required bool before}) async {
+  // -------------------- Storage for photo lists --------------------
+  Future<Directory> _workDir() async {
+    final docs = await getApplicationDocumentsDirectory();
+    final dir = Directory('${docs.path}/work_items/${_item!.id}');
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir;
+  }
+
+  Future<Directory> _photoDir({required bool before}) async {
+    final base = await _workDir();
+    final dir = Directory('${base.path}/photos/${before ? "before" : "after"}');
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir;
+  }
+
+  Future<File> _manifestFile({required bool before}) async {
+    final base = await _workDir();
+    return File('${base.path}/${before ? "before_photos" : "after_photos"}.json');
+  }
+
+  Future<void> _loadPhotoLists() async {
     if (_item == null) return;
-    if (_readOnly) return; // ✅ no editing completed
+
+    final before = await _readManifest(before: true);
+    final after = await _readManifest(before: false);
+
+    // ✅ Backward compatibility: if manifest empty but DB has single path, seed list
+    final legacyBefore = (_item!.beforePhotoPath ?? '').trim();
+    final legacyAfter = (_item!.afterPhotoPath ?? '').trim();
+
+    final seededBefore = List<String>.from(before);
+    final seededAfter = List<String>.from(after);
+
+    if (seededBefore.isEmpty && legacyBefore.isNotEmpty && File(legacyBefore).existsSync()) {
+      seededBefore.add(legacyBefore);
+      await _writeManifest(before: true, paths: seededBefore);
+    }
+    if (seededAfter.isEmpty && legacyAfter.isNotEmpty && File(legacyAfter).existsSync()) {
+      seededAfter.add(legacyAfter);
+      await _writeManifest(before: false, paths: seededAfter);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _beforePhotos = seededBefore.take(_maxPhotosPerSection).toList();
+      _afterPhotos = seededAfter.take(_maxPhotosPerSection).toList();
+    });
+  }
+
+  Future<List<String>> _readManifest({required bool before}) async {
+    try {
+      final f = await _manifestFile(before: before);
+      if (!await f.exists()) return [];
+      final raw = await f.readAsString();
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return [];
+
+      final valid = <String>[];
+      for (final v in decoded) {
+        if (v is String && v.trim().isNotEmpty) {
+          final file = File(v);
+          if (await file.exists()) valid.add(v);
+        }
+      }
+      return valid.take(_maxPhotosPerSection).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> _writeManifest({required bool before, required List<String> paths}) async {
+    try {
+      final f = await _manifestFile(before: before);
+      await f.writeAsString(jsonEncode(paths.take(_maxPhotosPerSection).toList()), flush: true);
+    } catch (e) {
+      _snack("Saving photo list failed: $e");
+    }
+  }
+
+  Future<String> _storePickedFile({required bool before, required XFile x}) async {
+    final dir = await _photoDir(before: before);
+
+    // keep extension if possible
+    String ext = ".jpg";
+    final name = x.name;
+    final dot = name.lastIndexOf('.');
+    if (dot != -1 && dot < name.length - 1) {
+      ext = name.substring(dot);
+    }
+
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final out = File('${dir.path}/${before ? "before" : "after"}_$ts$ext');
+
+    final bytes = await x.readAsBytes();
+    await out.writeAsBytes(bytes, flush: true);
+
+    return out.path;
+  }
+
+  Future<void> _syncDbRepresentativePhotos() async {
+    if (_item == null) return;
+
+    // keep DB fields as first image (so other pages still show 1 image)
+    final repBefore = _beforePhotos.isEmpty ? "" : _beforePhotos.first;
+    final repAfter = _afterPhotos.isEmpty ? "" : _afterPhotos.first;
 
     try {
-      final savedPath = await _photoService.captureAndStore(
-        workItemId: _item!.id,
-        before: before,
-        imageQuality: 75,
-      );
-
-      if (savedPath == null) return;
-
-      final oldPath = before ? _item!.beforePhotoPath : _item!.afterPhotoPath;
-      await _photoService.safeDeleteFile(oldPath);
-
       await AppDb.instance.updatePhotos(
         workItemId: _item!.id,
-        beforePath: before ? savedPath : null,
-        afterPath: before ? null : savedPath,
+        beforePath: repBefore,
+        afterPath: repAfter,
       );
 
       final fresh = await AppDb.instance.getWorkItem(_item!.id);
       if (!mounted) return;
       setState(() => _item = fresh);
-    } catch (e) {
-      _snack("Photo capture failed: $e");
+    } catch (_) {
+      // ignore if DB update fails; manifests still work
     }
   }
 
-  Future<void> _deletePhoto({required bool before}) async {
+  // -------------------- Add / Remove Photos --------------------
+  bool _limitReached(bool before) =>
+      (before ? _beforePhotos.length : _afterPhotos.length) >= _maxPhotosPerSection;
+
+  Future<void> _addFromCamera({required bool before}) async {
     if (_item == null) return;
-    if (_readOnly) return; // ✅ no editing completed
+    if (_readOnly || _completing) return;
+
+    if (_limitReached(before)) {
+      _snack("Max $_maxPhotosPerSection ${before ? "before" : "after"} photos reached.");
+      return;
+    }
 
     try {
-      final oldPath = before ? _item!.beforePhotoPath : _item!.afterPhotoPath;
-      await _photoService.safeDeleteFile(oldPath);
+      final x = await _picker.pickImage(source: ImageSource.camera, imageQuality: 75);
+      if (x == null) return;
 
-      // clear in DB using empty string
-      await AppDb.instance.updatePhotos(
-        workItemId: _item!.id,
-        beforePath: before ? "" : null,
-        afterPath: before ? null : "",
-      );
+      final path = await _storePickedFile(before: before, x: x);
 
-      final fresh = await AppDb.instance.getWorkItem(_item!.id);
-      if (!mounted) return;
-      setState(() => _item = fresh);
+      setState(() {
+        if (before) {
+          _beforePhotos.add(path);
+        } else {
+          _afterPhotos.add(path);
+        }
+      });
+
+      await _writeManifest(before: before, paths: before ? _beforePhotos : _afterPhotos);
+      await _syncDbRepresentativePhotos();
     } catch (e) {
-      _snack("Delete photo failed: $e");
+      _snack("Camera add failed: $e");
     }
   }
 
-  // ---------- PDF ----------
+  Future<void> _addFromGallery({required bool before}) async {
+    if (_item == null) return;
+    if (_readOnly || _completing) return;
+
+    if (_limitReached(before)) {
+      _snack("Max $_maxPhotosPerSection ${before ? "before" : "after"} photos reached.");
+      return;
+    }
+
+    try {
+      final picks = await _picker.pickMultiImage(imageQuality: 75);
+      if (picks.isEmpty) return;
+
+      final list = before ? _beforePhotos : _afterPhotos;
+      final remaining = _maxPhotosPerSection - list.length;
+      final toAdd = picks.take(remaining).toList();
+
+      final newPaths = <String>[];
+      for (final x in toAdd) {
+        final p = await _storePickedFile(before: before, x: x);
+        newPaths.add(p);
+      }
+
+      setState(() {
+        if (before) {
+          _beforePhotos.addAll(newPaths);
+        } else {
+          _afterPhotos.addAll(newPaths);
+        }
+      });
+
+      await _writeManifest(before: before, paths: before ? _beforePhotos : _afterPhotos);
+      await _syncDbRepresentativePhotos();
+
+      if (picks.length > remaining) {
+        _snack("Added $remaining photo(s). Max $_maxPhotosPerSection reached.");
+      }
+    } catch (e) {
+      _snack("Gallery add failed: $e");
+    }
+  }
+
+  Future<void> _removePhoto({required bool before, required String path}) async {
+    if (_item == null) return;
+    if (_readOnly || _completing) return;
+
+    try {
+      final f = File(path);
+      if (await f.exists()) await f.delete();
+
+      setState(() {
+        if (before) {
+          _beforePhotos.remove(path);
+        } else {
+          _afterPhotos.remove(path);
+        }
+      });
+
+      await _writeManifest(before: before, paths: before ? _beforePhotos : _afterPhotos);
+      await _syncDbRepresentativePhotos();
+    } catch (e) {
+      _snack("Remove failed: $e");
+    }
+  }
+
+  // -------------------- PDF --------------------
   String _pdfFileName() {
     final item = _item!;
     final shortId = item.id.length >= 6 ? item.id.substring(0, 6).toUpperCase() : item.id.toUpperCase();
@@ -163,12 +337,26 @@ class _InvoicePageState extends State<InvoicePage> {
   }
 
   Future<Uint8List> _buildPdfBytes() async {
-    final bytesList = await _pdfService.buildPdfBytes(
-      item: _item!,
-      services: _services,
-      includePhotos: attachPhotos,
-    );
-    return Uint8List.fromList(bytesList);
+    // ✅ new signature includes beforePhotoPaths/afterPhotoPaths
+    try {
+      final dynamic svc = _pdfService;
+      final bytesList = await svc.buildPdfBytes(
+        item: _item!,
+        services: _services,
+        includePhotos: attachPhotos,
+        beforePhotoPaths: _beforePhotos,
+        afterPhotoPaths: _afterPhotos,
+      );
+      return Uint8List.fromList(List<int>.from(bytesList));
+    } catch (_) {
+      // fallback if you didn't replace invoice_pdf_service.dart yet
+      final bytesList = await _pdfService.buildPdfBytes(
+        item: _item!,
+        services: _services,
+        includePhotos: attachPhotos,
+      );
+      return Uint8List.fromList(bytesList);
+    }
   }
 
   Future<void> _previewPdf() async {
@@ -216,21 +404,33 @@ class _InvoicePageState extends State<InvoicePage> {
     }
   }
 
-  // ---------- Email ----------
+  // -------------------- Email --------------------
   Future<void> _sendEmailWithInvoice() async {
     if (_item == null) return;
 
     final bytes = await _buildPdfBytes();
     final pdfFile = await _savePdfToAppFiles(bytes);
 
-    await _emailService.sendInvoiceEmail(
-      item: _item!,
-      pdfPath: pdfFile.path,
-      attachPhotos: attachPhotos,
-    );
+    // ✅ new signature includes beforePhotoPaths/afterPhotoPaths
+    try {
+      final dynamic es = _emailService;
+      await es.sendInvoiceEmail(
+        item: _item!,
+        pdfPath: pdfFile.path,
+        attachPhotos: attachPhotos,
+        beforePhotoPaths: _beforePhotos,
+        afterPhotoPaths: _afterPhotos,
+      );
+    } catch (_) {
+      await _emailService.sendInvoiceEmail(
+        item: _item!,
+        pdfPath: pdfFile.path,
+        attachPhotos: attachPhotos,
+      );
+    }
   }
 
-  // ---------- Complete ----------
+  // -------------------- Complete --------------------
   Future<bool> _confirmComplete() async {
     if (!mounted) return false;
 
@@ -280,10 +480,7 @@ class _InvoicePageState extends State<InvoicePage> {
               ),
               const SizedBox(width: 14),
               const Expanded(
-                child: Text(
-                  "Completed Work Item",
-                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
-                ),
+                child: Text("Completed Work Item", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
               ),
             ],
           ),
@@ -331,7 +528,7 @@ class _InvoicePageState extends State<InvoicePage> {
     }
   }
 
-  // ---------- UI ----------
+  // -------------------- UI --------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -360,7 +557,6 @@ class _InvoicePageState extends State<InvoicePage> {
           ),
         ],
       ),
-      // ✅ Hide Complete button for completed work items
       bottomNavigationBar: _readOnly
           ? null
           : SafeArea(
@@ -384,10 +580,7 @@ class _InvoicePageState extends State<InvoicePage> {
             const SizedBox(height: 10),
             const Text("Could not load invoice.", style: TextStyle(fontWeight: FontWeight.w800)),
             const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Go Back"),
-            ),
+            FilledButton(onPressed: () => Navigator.pop(context), child: const Text("Go Back")),
           ],
         ),
       ),
@@ -399,10 +592,7 @@ class _InvoicePageState extends State<InvoicePage> {
       padding: const EdgeInsets.all(4),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
         child: Row(
           children: [
             Expanded(
@@ -410,11 +600,7 @@ class _InvoicePageState extends State<InvoicePage> {
                 onTap: (_item == null || _completing) ? null : _previewPdf,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.picture_as_pdf),
-                    SizedBox(height: 4),
-                    Text("Preview"),
-                  ],
+                  children: const [Icon(Icons.picture_as_pdf), SizedBox(height: 4), Text("Preview")],
                 ),
               ),
             ),
@@ -423,11 +609,7 @@ class _InvoicePageState extends State<InvoicePage> {
                 onTap: (_item == null || _completing) ? null : _sharePdf,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.share),
-                    SizedBox(height: 4),
-                    Text("Share"),
-                  ],
+                  children: const [Icon(Icons.share), SizedBox(height: 4), Text("Share")],
                 ),
               ),
             ),
@@ -436,11 +618,7 @@ class _InvoicePageState extends State<InvoicePage> {
                 onTap: (_item == null || _completing) ? null : _savePdf,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.download),
-                    SizedBox(height: 4),
-                    Text("Save"),
-                  ],
+                  children: const [Icon(Icons.download), SizedBox(height: 4), Text("Save")],
                 ),
               ),
             ),
@@ -471,7 +649,8 @@ class _InvoicePageState extends State<InvoicePage> {
             borderRadius: BorderRadius.circular(14),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(_readOnly ? "Invoice" : "Work Item Invoice", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
+            Text(_readOnly ? "Invoice" : "Work Item Invoice",
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900)),
             const SizedBox(height: 6),
             Text("Activated: $createdText", style: const TextStyle(color: Colors.white70)),
             if (completedText != null) ...[
@@ -524,8 +703,7 @@ class _InvoicePageState extends State<InvoicePage> {
   }
 
   Widget _photoEmailSection() {
-    final beforePath = (_item!.beforePhotoPath != null && _item!.beforePhotoPath!.isNotEmpty) ? _item!.beforePhotoPath : null;
-    final afterPath = (_item!.afterPhotoPath != null && _item!.afterPhotoPath!.isNotEmpty) ? _item!.afterPhotoPath : null;
+    final disabled = _completing || _readOnly;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -546,22 +724,31 @@ class _InvoicePageState extends State<InvoicePage> {
             ),
           ],
         ),
+
         if (attachPhotos) ...[
           const SizedBox(height: 10),
-          _photoBox(
-            title: "Before Photo",
-            path: beforePath,
-            onCapture: () => _pickPhoto(before: true),
-            onDelete: () => _deletePhoto(before: true),
+
+          _photoMultiSection(
+            title: "Before Photos",
+            photos: _beforePhotos,
+            disabled: disabled,
+            onAddCamera: () => _addFromCamera(before: true),
+            onAddGallery: () => _addFromGallery(before: true),
+            onRemove: (p) => _removePhoto(before: true, path: p),
           ),
-          const SizedBox(height: 12),
-          _photoBox(
-            title: "After Photo",
-            path: afterPath,
-            onCapture: () => _pickPhoto(before: false),
-            onDelete: () => _deletePhoto(before: false),
+
+          const SizedBox(height: 14),
+
+          _photoMultiSection(
+            title: "After Photos",
+            photos: _afterPhotos,
+            disabled: disabled,
+            onAddCamera: () => _addFromCamera(before: false),
+            onAddGallery: () => _addFromGallery(before: false),
+            onRemove: (p) => _removePhoto(before: false, path: p),
           ),
         ],
+
         const SizedBox(height: 10),
         Row(
           children: [
@@ -575,61 +762,89 @@ class _InvoicePageState extends State<InvoicePage> {
         if (_item!.email.trim().isEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 6),
-            child: Text("No customer email on file — add an email to enable sending.", style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+            child: Text(
+              "No customer email on file — add an email to enable sending.",
+              style: TextStyle(color: Colors.redAccent, fontSize: 12),
+            ),
           ),
       ]),
     );
   }
 
-  Widget _photoBox({
+  Widget _photoMultiSection({
     required String title,
-    required String? path,
-    required VoidCallback onCapture,
-    required VoidCallback onDelete,
+    required List<String> photos,
+    required bool disabled,
+    required VoidCallback onAddCamera,
+    required VoidCallback onAddGallery,
+    required void Function(String path) onRemove,
   }) {
-    final disabled = _completing || _readOnly;
+    final limitReached = photos.length >= _maxPhotosPerSection;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: const TextStyle(color: AppColors.subText, fontWeight: FontWeight.w800)),
         const SizedBox(height: 8),
-        Stack(
+        Row(
           children: [
-            InkWell(
-              onTap: disabled ? null : onCapture,
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                height: 160,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.border),
-                  color: AppColors.bg,
-                ),
-                child: path == null
-                    ? const Center(child: Icon(Icons.camera_alt_outlined, color: Colors.grey))
-                    : ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Image.file(File(path), fit: BoxFit.cover),
-                      ),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: disabled || limitReached ? null : onAddCamera,
+                icon: const Icon(Icons.camera_alt_outlined),
+                label: const Text("Camera"),
               ),
             ),
-            if (path != null && !_readOnly)
-              Positioned(
-                right: 10,
-                top: 10,
-                child: InkWell(
-                  onTap: disabled ? null : onDelete,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(color: Colors.black.withOpacity(0.55), shape: BoxShape.circle),
-                    child: const Icon(Icons.close, color: Colors.white, size: 18),
-                  ),
-                ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: disabled || limitReached ? null : onAddGallery,
+                icon: const Icon(Icons.photo_library_outlined),
+                label: const Text("Gallery"),
               ),
+            ),
           ],
         ),
+        const SizedBox(height: 8),
+        Text(
+          "${photos.length} / $_maxPhotosPerSection selected",
+          style: const TextStyle(color: Colors.grey, fontSize: 12),
+        ),
+        const SizedBox(height: 10),
+        photos.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 10),
+                child: Text("No photos added.", style: TextStyle(color: Colors.grey)),
+              )
+            : Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: photos.map((p) => _thumb(p, disabled: disabled, onRemove: () => onRemove(p))).toList(),
+              ),
+      ],
+    );
+  }
+
+  Widget _thumb(String path, {required bool disabled, required VoidCallback onRemove}) {
+    return Stack(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.file(File(path), width: 96, height: 96, fit: BoxFit.cover),
+        ),
+        if (!disabled)
+          Positioned(
+            right: 6,
+            top: 6,
+            child: InkWell(
+              onTap: onRemove,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(color: Colors.black.withOpacity(0.55), shape: BoxShape.circle),
+                child: const Icon(Icons.close, color: Colors.white, size: 18),
+              ),
+            ),
+          ),
       ],
     );
   }
