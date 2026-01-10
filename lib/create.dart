@@ -327,7 +327,7 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
       final roundedTotal = (total * 100).round() / 100.0;
 
       final item = WorkItem(
-        id: id,
+        id: int.parse(id),
         status: 'active',
         createdAt: DateTime.now(),
         customerName: name,

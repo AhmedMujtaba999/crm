@@ -1,5 +1,5 @@
 class WorkItem {
-  final String id;
+  final int id;
   final String status; // 'active' | 'completed'
   final DateTime createdAt; // Activated date = createdAt
   final DateTime? completedAt; // Completed date
@@ -52,22 +52,39 @@ class WorkItem {
     }
 
     return WorkItem(
-      id: (m['id'] ?? '').toString(),
+      // ✅ FIXED: id is ALWAYS int
+      id: (m['id'] is int)
+          ? m['id'] as int
+          : int.tryParse(m['id']?.toString() ?? '0') ?? 0,
+
       status: (m['status'] ?? 'active').toString(),
-      createdAt: DateTime.parse((m['createdAt'] ?? DateTime.now().toIso8601String()).toString()),
+      createdAt: DateTime.parse(
+        (m['createdAt'] ?? DateTime.now().toIso8601String()).toString(),
+      ),
       completedAt: parseDT(m['completedAt']),
       customerName: (m['customerName'] ?? '').toString(),
       phone: (m['phone'] ?? '').toString(),
       email: (m['email'] ?? '').toString(),
       address: (m['address'] ?? '').toString(),
       notes: (m['notes'] ?? '').toString(),
-      total: (m['total'] is num) ? (m['total'] as num).toDouble() : double.tryParse((m['total'] ?? '0').toString()) ?? 0,
-      beforePhotoPath: ((m['beforePhotoPath'] ?? '').toString().trim().isEmpty) ? null : (m['beforePhotoPath'] as String),
-      afterPhotoPath: ((m['afterPhotoPath'] ?? '').toString().trim().isEmpty) ? null : (m['afterPhotoPath'] as String),
+      total: (m['total'] is num)
+          ? (m['total'] as num).toDouble()
+          : double.tryParse((m['total'] ?? '0').toString()) ?? 0,
+      beforePhotoPath:
+          ((m['beforePhotoPath'] ?? '').toString().trim().isEmpty)
+              ? null
+              : m['beforePhotoPath'].toString(),
+      afterPhotoPath:
+          ((m['afterPhotoPath'] ?? '').toString().trim().isEmpty)
+              ? null
+              : m['afterPhotoPath'].toString(),
     );
   }
 }
 
+// =======================================================
+// ServiceItem (UNCHANGED – string IDs are fine here)
+// =======================================================
 class ServiceItem {
   final String id;
   final String workItemId;
@@ -92,10 +109,15 @@ class ServiceItem {
         id: (m['id'] ?? '').toString(),
         workItemId: (m['workItemId'] ?? '').toString(),
         name: (m['name'] ?? '').toString(),
-        amount: (m['amount'] is num) ? (m['amount'] as num).toDouble() : double.tryParse((m['amount'] ?? '0').toString()) ?? 0,
+        amount: (m['amount'] is num)
+            ? (m['amount'] as num).toDouble()
+            : double.tryParse((m['amount'] ?? '0').toString()) ?? 0,
       );
 }
 
+// =======================================================
+// TaskItem (UNCHANGED)
+// =======================================================
 class TaskItem {
   final String id;
   final String title;
@@ -135,7 +157,11 @@ class TaskItem {
         phone: (m['phone'] ?? '').toString(),
         email: (m['email'] ?? '').toString(),
         address: (m['address'] ?? '').toString(),
-        createdAt: DateTime.parse((m['createdAt'] ?? DateTime.now().toIso8601String()).toString()),
-        scheduledAt: DateTime.parse((m['scheduledAt'] ?? DateTime.now().toIso8601String()).toString()),
+        createdAt: DateTime.parse(
+          (m['createdAt'] ?? DateTime.now().toIso8601String()).toString(),
+        ),
+        scheduledAt: DateTime.parse(
+          (m['scheduledAt'] ?? DateTime.now().toIso8601String()).toString(),
+        ),
       );
 }
