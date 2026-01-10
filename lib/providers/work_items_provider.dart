@@ -46,7 +46,7 @@ class WorkItemsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> deleteItem(int id) async {
+  Future<void> deleteItem(String id) async {
     await _service.delete(id);
     _items.removeWhere((e) => e.id == id);
     notifyListeners();

@@ -104,7 +104,7 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
 
     if (ok != true) return;
 
-    await context.read<WorkItemsProvider>().deleteItem(it.id);
+    await context.read<WorkItemsProvider>().deleteItem(it.id.toString());
 
     if (!mounted) return;
     ScaffoldMessenger.of(context)

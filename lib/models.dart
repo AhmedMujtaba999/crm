@@ -1,5 +1,5 @@
 class WorkItem {
-  final int id;
+  final String id;
   final String status; // 'active' | 'completed'
   final DateTime createdAt; // Activated date = createdAt
   final DateTime? completedAt; // Completed date
@@ -52,10 +52,8 @@ class WorkItem {
     }
 
     return WorkItem(
-      // ✅ FIXED: id is ALWAYS int
-      id: (m['id'] is int)
-          ? m['id'] as int
-          : int.tryParse(m['id']?.toString() ?? '0') ?? 0,
+    
+      id: (m['id'] ?? '').toString(),
 
       status: (m['status'] ?? 'active').toString(),
       createdAt: DateTime.parse(

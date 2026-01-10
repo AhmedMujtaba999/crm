@@ -32,13 +32,13 @@ class EmailService {
       }
     }
 
-    final subject = "Invoice - ${item.customerName} (${_shortId(item.id)})";
+    final subject = "Invoice - ${item.customerName} (${_shortId(item.id.toString())})";
     final body = """
 Hi ${item.customerName},
 
 Please find your invoice attached.
 
-Work Item: ${_shortId(item.id)}
+Work Item: ${_shortId(item.id.toString())}
 Total: \$${item.total.toStringAsFixed(2)}
 
 Thank you!

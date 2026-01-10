@@ -6,7 +6,7 @@ class WorkItemsService {
     return AppDb.instance.listWorkItemsByStatus(status);
   }
 
-  Future<void> delete(int id) async {
+  Future<void> delete(String id) async {
     await AppDb.instance.deleteWorkItem(id);
   }
 }
