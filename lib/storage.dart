@@ -178,7 +178,7 @@ class AppDb {
     await db.update('work_items', data, where: 'id = ?', whereArgs: [workItemId]);
   }
 
-  Future<void> deleteWorkItem(String workItemId) async {
+  Future<void> deleteWorkItem(int workItemId) async {
     // delete services first
     await db.delete('services', where: 'workItemId = ?', whereArgs: [workItemId]);
     // delete work item
