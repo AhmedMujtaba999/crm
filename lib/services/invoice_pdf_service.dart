@@ -76,8 +76,11 @@ class InvoicePdfService {
         // ignore broken image
       }
     }
+final idStr = item.id.toString();
+final shortId = idStr.length >= 6
+    ? idStr.substring(0, 6).toUpperCase()
+    : idStr.toUpperCase();
 
-    final shortId = item.id.length >= 6 ? item.id.substring(0, 6).toUpperCase() : item.id.toUpperCase();
 
     doc.addPage(
       pw.MultiPage(
