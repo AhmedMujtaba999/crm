@@ -206,12 +206,12 @@ class _InvoicePageState extends State<InvoicePage> {
 
     try {
       await AppDb.instance.updatePhotos(
-        workItemId: _item!.id,
+        workItemId: _item!.id.toString(),
         beforePath: repBefore,
         afterPath: repAfter,
       );
 
-      final fresh = await AppDb.instance.getWorkItem(_item!.id);
+      final fresh = await AppDb.instance.getWorkItem(_item!.id.toString());
       if (!mounted) return;
       setState(() => _item = fresh);
     } catch (_) {
@@ -319,11 +319,10 @@ class _InvoicePageState extends State<InvoicePage> {
   }
 
   // -------------------- PDF --------------------
-  String _pdfFileName() {
-    final item = _item!;
-    final shortId = item.id.length >= 6 ? item.id.substring(0, 6).toUpperCase() : item.id.toUpperCase();
-    final d = DateFormat('yyyyMMdd').format(item.createdAt);
-    return 'invoice_${d}_${shortId}.pdf';
+   String _pdfFileName() {
+    final idStr = _item!.id.toString().padLeft(6, '0');
+    final d = DateFormat('yyyyMMdd').format(_item!.createdAt);
+    return 'invoice_${d}_$idStr.pdf';
   }
 
   Future<File> _savePdfToAppFiles(Uint8List bytes) async {
@@ -510,7 +509,7 @@ class _InvoicePageState extends State<InvoicePage> {
         }
       }
 
-      await AppDb.instance.markCompleted(_item!.id);
+      await AppDb.instance.markCompleted(_item!.id.toString());
 
       if (!mounted) return;
       await _showCompletedPrompt();
