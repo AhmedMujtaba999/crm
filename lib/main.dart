@@ -1,3 +1,4 @@
+import 'package:crm/providers/create_work_item_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -14,11 +15,20 @@ Future<void> main() async {
   await AppDb.instance.init();
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => WorkItemsProvider(),
-      child: const MyApp(),
+    MultiProvider(
+
+      providers:[
+        ChangeNotifierProvider(create: (_)=> CreateWorkItemProvider(),),
+         ChangeNotifierProvider(
+        create: (_) => WorkItemsProvider(),
+        
+      ),
+      ],
+      child: MyApp(),
     ),
   );
+
+  
 }
 
 class MyApp extends StatelessWidget {
