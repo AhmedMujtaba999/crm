@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'models.dart';
 import 'package:uuid/uuid.dart';
-import 'storage.dart';
+
 import 'widgets.dart';
+import 'package:provider/provider.dart';
+import 'providers/create_work_item_provider.dart';
+
 
 class CreateWorkItemPage extends StatefulWidget {
   final TaskItem? prefillTask;
@@ -39,7 +42,10 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
   ) async {
     final normPhone = phone.replaceAll(RegExp(r'\D'), '');
     final normEmail = email.trim().toLowerCase();
-    final existing = await AppDb.instance.findLatestWorkItemByCustomer(phone: normPhone, email: normEmail);
+    final existing = await context
+    .read<CreateWorkItemProvider>()
+    .findLatestByCustomer(phone: normPhone, email: normEmail);
+
 
     final res = await showDialog<CustomerExistsAction>(
       context: context,
@@ -149,13 +155,16 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
   ];
 
   String selectedService = 'Select service';
-  final List<ServiceItem> services = [];
-
-  double get total => services.fold(0.0, (p, e) => p + e.amount);
+//final List<ServiceItem> services = [];
+double get total =>
+    context.read<CreateWorkItemProvider>().total;
 
   @override
   void initState() {
     super.initState();
+    Future.microtask((){
+      context.read<CreateWorkItemProvider>().resetConfirmedCreate();
+    });
     final t = widget.prefillTask;
     if (t != null) {
       nameC.text = t.customerName;
@@ -226,150 +235,104 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
   }
 
   void addService() {
-    final amt = double.tryParse(amountC.text.trim());
-    if (selectedService == 'Select service') return;
-    if (amt == null || amt <= 0) return;
+  final amt = double.tryParse(amountC.text.trim());
+  if (selectedService == 'Select service') return;
+  if (amt == null || amt <= 0) return;
 
-    final amtRounded = (amt * 100).round() / 100.0;
+  context.read<CreateWorkItemProvider>().addService(
+        selectedService,
+        (amt * 100).round() / 100,
+      );
 
-    if (services.any((s) => s.name == selectedService)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Service already added')));
-      return;
-    }
+  amountC.clear();
+  setState(() => selectedService = 'Select service');
+}
 
-    setState(() {
-      services.add(ServiceItem(
-        id: const Uuid().v4(),
-        workItemId: 'temp',
-        name: selectedService,
-        amount: amtRounded,
-      ));
-      amountC.clear();
-      selectedService = 'Select service';
-    });
+
+  
+Future<void> saveWorkItem() async {
+    final provider = context.read<CreateWorkItemProvider>();
+
+
+  
+  final valid = _formKey.currentState?.validate() ?? true;
+  if (!valid) return;
+
+  if (provider.services.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Add at least one service")),
+    );
+    return;
   }
 
-  Future<void> saveWorkItem() async {
-    final valid = _formKey.currentState?.validate() ?? true;
-    if (!valid) return;
+  final rawPhone = phoneC.text.trim();
+  final rawEmail = emailC.text.trim();
 
-    if (services.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Add at least one service")));
-      return;
-    }
+  final phone = rawPhone.replaceAll(RegExp(r'\D'), '');
+  final email = rawEmail.toLowerCase();
 
-    final name = nameC.text.trim();
+  try {
+    final exists = await provider.customerExists(
+      phone: phone,
+      email: email,
+    );
 
-    final rawPhone = phoneC.text.trim();
-    final rawEmail = emailC.text.trim();
+    if (exists && provider.confirmedCreateForPhone != phone) {
+      final action =
+          await showCustomerExistsDialog(context, rawPhone, rawEmail);
 
-    final phone = rawPhone.replaceAll(RegExp(r'\D'), '');
-    final email = rawEmail.toLowerCase();
+      if (action == CustomerExistsAction.cancel) return;
 
-    if (_isSaving) return;
-    setState(() => _isSaving = true);
-
-    try {
-      bool exists = false;
-      if (phone.isNotEmpty || email.isNotEmpty) {
-        exists = await AppDb.instance.customerExists(phone: phone, email: email);
+      if (action == CustomerExistsAction.openExisting) {
+        final existing =
+            await provider.findLatestByCustomer(phone: phone, email: email);
+        if (existing != null && mounted) {
+          Navigator.pushNamed(context, '/invoice',
+              arguments: existing.id);
+        }
+        return;
       }
 
-      final skipDialog = (_confirmedCreateForPhone != null && _confirmedCreateForPhone == phone);
-
-      if (exists && !skipDialog) {
-        final action = await showCustomerExistsDialog(context, rawPhone, rawEmail);
-        if (action == CustomerExistsAction.cancel) {
-          setState(() => _isSaving = false);
-          return;
-        }
-
-        if (action == CustomerExistsAction.openExisting) {
-          final existing = await AppDb.instance.findLatestWorkItemByCustomer(phone: phone, email: email);
-          if (existing != null) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Opening existing work item')));
-            setState(() => _isSaving = false);
-
-            // Open invoice page for that work item
-            Navigator.pushNamed(context, '/invoice', arguments: existing.id);
-            return;
-          }
-        }
-
-        if (action == CustomerExistsAction.createNew) {
-          final existing = await AppDb.instance.findLatestWorkItemByCustomer(phone: phone, email: email);
-          if (existing != null) {
-            setState(() {
-              if (nameC.text.trim().isEmpty) nameC.text = existing.customerName;
-              if (phoneC.text.trim().isEmpty) phoneC.text = existing.phone;
-              if (emailC.text.trim().isEmpty) emailC.text = existing.email;
-              if (addressC.text.trim().isEmpty) addressC.text = existing.address;
-
-              _confirmedCreateForPhone = phone;
-            });
-
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Prefilled details — review and tap Save again to create new work item')),
-            );
-            setState(() => _isSaving = false);
-            return;
-          }
-        }
-      }
-
-      if (_confirmedCreateForPhone != null && _confirmedCreateForPhone == phone) {
-        _confirmedCreateForPhone = null;
-      }
-
-      final id = const Uuid().v4();
-      final roundedTotal = (total * 100).round() / 100.0;
-
-      final item = WorkItem(
-        id: id,
-        status: 'active',
-        createdAt: DateTime.now(),
-        customerName: name,
-        phone: rawPhone,
-        email: rawEmail,
-        address: addressC.text.trim(),
-        notes: notesC.text.trim(),
-        total: roundedTotal,
-      );
-
-      final mapped = services
-          .map((s) => ServiceItem(
-                id: s.id,
-                workItemId: id,
-                name: s.name,
-                amount: s.amount,
-              ))
-          .toList();
-
-      await AppDb.instance.insertWorkItem(item, mapped);
-
-      if (!mounted) return;
-
-      // ✅ REQUIRED: after saving, go to Work Items -> Active
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/home',
-        (route) => false,
-        arguments: {'tab': 1, 'workTab': 'active'},
-      );
-    } catch (e) {
-      if (mounted) {
+      if (action == CustomerExistsAction.createNew) {
+        provider.confirmedCreateForPhone = phone;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Save failed: ${e.toString()}")),
+          const SnackBar(
+            content: Text(
+                'Details prefilled. Tap Save again to continue.'),
+          ),
         );
+        return;
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
+
+    await provider.save(
+      customerName: nameC.text.trim(),
+      phone: rawPhone,
+      email: rawEmail,
+      address: addressC.text.trim(),
+      notes: notesC.text.trim(),
+    );
+
+    if (!mounted) return;
+
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/home',
+      (_) => false,
+      arguments: {'tab': 1, 'workTab': 'active'},
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Save failed: $e")),
+    );
   }
+}
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<CreateWorkItemProvider>();
+final services = provider.services;
+
     return Scaffold(
       body: Column(children: [
         const GradientHeader(title: "Create Work Item"),
@@ -481,7 +444,7 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
                       width: 52,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: addService,
+                        onPressed: () { context.read<CreateWorkItemProvider>().addService(selectedService, double.parse(amountC.text),);},
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF2F5BFF),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -497,7 +460,9 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
                           child: ServiceRow(
                             name: s.name,
                             amount: s.amount,
-                            onDelete: () => setState(() => services.remove(s)),
+                            onDelete: () =>
+    context.read<CreateWorkItemProvider>().removeService(s),
+
                           ),
                         )),
                     const Divider(),
