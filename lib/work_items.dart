@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-
 import 'models.dart';
 import 'widgets.dart';
 import 'theme.dart';
@@ -104,11 +103,14 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
 
     if (ok != true) return;
 
-    await context.read<WorkItemsProvider>().deleteItem(it.id.toString());
+    await context.read<WorkItemsProvider>().deleteItem(
+      it.id.toString(),
+    ); // deleting the completed work item using provider
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text("Deleted")));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Deleted")));
   }
 
   @override
@@ -161,8 +163,8 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
                   final msg = activeSelected
                       ? "No active work items"
                       : completedByDateSelected
-                          ? "No completed items for ${_dateLabel(selectedDate)}"
-                          : "No completed work items";
+                      ? "No completed items for ${_dateLabel(selectedDate)}"
+                      : "No completed work items";
                   return EmptyState(text: msg);
                 }
 
@@ -175,10 +177,9 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
                     );
                   },
                   child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
                     itemCount: list.length,
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: 12),
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (_, i) => _workCard(list[i]),
                   ),
                 );
@@ -217,16 +218,30 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
             if (completedByDateSelected) ...[
               const SizedBox(height: 10),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Icon(Icons.info_outline,
-                      size: 16, color: Colors.grey),
-                  const SizedBox(width: 8),
-                  Text(
-                    "Showing: ${_dateLabel(selectedDate)}",
-                    style: TextStyle(
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Showing: ${_dateLabel(selectedDate)}",
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // ✅ ADD THIS
+                  IconButton(
+                    icon: const Icon(Icons.calendar_month_sharp),
+                    onPressed: _pickDate,
                   ),
                 ],
               ),
@@ -239,10 +254,10 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
 
   Widget _segmentedTabs() {
     return Container(
-      height: 46,
+      height: 40,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppColors.bg,
+        color: const Color.fromARGB(255, 232, 232, 233),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.border),
       ),
@@ -301,25 +316,69 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(it.customerName,
-                style:
-                    const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-            const SizedBox(height: 6),
-            if (it.phone.trim().isNotEmpty)
-              Text(it.phone, style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 10),
+            // 🔹 TOP ROW (Name + 3 dots)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("Total",
-                    style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w700)),
+                Expanded(
+                  child: Text(
+                    it.customerName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+
+                // ✅ 3 DOT MENU (ONLY FOR COMPLETED)
+                if (!activeSelected)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) {
+                      if (value == 'delete') {
+                        _deleteWorkItem(it);
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text("Delete", style: TextStyle(color: Colors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+
+            const SizedBox(height: 6),
+
+            if (it.phone.trim().isNotEmpty)
+              Text(it.phone, style: const TextStyle(color: Colors.grey)),
+
+            const SizedBox(height: 10),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Total",
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 Text(
                   "\$${it.total.toStringAsFixed(2)}",
                   style: const TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w900),
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ],
             ),
