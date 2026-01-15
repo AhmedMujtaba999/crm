@@ -21,9 +21,11 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
   bool completedByDateSelected = true;
   DateTime selectedDate = DateTime.now();
 
+
   @override
   void initState() {
     super.initState();
+    
 
     if (widget.initialTab == 'completed') {
       activeSelected = false;
