@@ -7,6 +7,7 @@ import 'task_create.dart';
 import 'invoice.dart';
 import 'providers/task_create_provider.dart';
 import 'providers/invoice_provider.dart';
+import 'providers/home_shell_provider.dart';
 
 class AppRoutes {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -19,22 +20,27 @@ class AppRoutes {
         );
 
       // ---------------- Home ----------------
-      case '/home':
-        {
-          int tab = 0;
-          String? workTab;
+    case '/home': {
+  int tab = 0;
+  String? workTab;
 
-          final args = settings.arguments;
-          if (args is Map) {
-            if (args['tab'] is int) tab = args['tab'];
-            if (args['workTab'] is String) workTab = args['workTab'];
-          }
+  final args = settings.arguments;
+  if (args is Map) {
+    if (args['tab'] is int) tab = args['tab'];
+    if (args['workTab'] is String) workTab = args['workTab'];
+  }
 
-          return MaterialPageRoute(
-            builder: (_) => HomeShell(initialTab: tab, workTab: workTab),
-            settings: settings,
-          );
-        }
+  return MaterialPageRoute(
+    settings: settings,
+    builder: (_) => ChangeNotifierProvider(
+      create: (_) => HomeShellProvider(),
+      child: HomeShell(
+        initialTab: tab,
+        workTab: workTab,
+      ),
+    ),
+  );
+}
 
       // ---------------- Invoice (WITH PROVIDER) ----------------
       case '/invoice':
