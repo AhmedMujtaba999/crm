@@ -1,0 +1,256 @@
+import 'dart:typed_data';
+import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
+import '../models.dart';
+import '../service_of_providers/invoice_service.dart';
+
+class InvoiceProvider extends ChangeNotifier {
+  final InvoiceService _service = InvoiceService();
+  void toggleAttachPhotos(bool value) {
+    attachPhotos = value;
+    notifyListeners();
+  }
+
+  void toggleSendEmail(bool value) {
+    sendEmail = value;
+    notifyListeners();
+  }
+
+  // =======================
+  // State
+  // =======================
+  WorkItem? item;
+  List<ServiceItem> services = [];
+
+  bool loading = true;
+  bool completing = false;
+  bool readOnly = false;
+
+  bool attachPhotos = true;
+  bool sendEmail = false;
+
+  List<String> beforePhotos = [];
+  List<String> afterPhotos = [];
+
+  static const int maxPhotosPerSection = 20;
+
+  // =======================
+  // Load
+  // =======================
+  Future<void> load(String workItemId) async {
+    loading = true;
+    notifyListeners();
+
+    final result = await _service.loadInvoice(workItemId);
+
+    item = result.item;
+    services = result.services;
+    beforePhotos = List.from(result.beforePhotos);
+    afterPhotos = List.from(result.afterPhotos);
+
+    readOnly = item?.status == 'completed';
+    sendEmail = item?.email.trim().isNotEmpty ?? false;
+    
+
+    loading = false;
+    notifyListeners();
+  }
+
+  // =======================
+  // Helpers
+  // =======================
+  bool limitReached(bool before) {
+    return (before ? beforePhotos.length : afterPhotos.length) >=
+        maxPhotosPerSection;
+  }
+
+  // =======================
+  // Photos – Camera
+  // =======================
+  Future<void> addFromCamera({required bool before}) async {
+    if (item == null || readOnly || completing) return;
+    if (limitReached(before)) return;
+
+    final path = await _service.addPhotoFromCamera(item!.id.toString(), before);
+    if (path == null) return;
+
+    if (before) {
+      beforePhotos.add(path);
+    } else {
+      afterPhotos.add(path);
+    }
+
+    await _service.persistPhotos(
+      item!.id.toString(),
+      beforePhotos,
+      afterPhotos,
+    );
+
+    notifyListeners();
+  }
+
+  // =======================
+  // Photos – Gallery
+  // =======================
+  Future<void> addFromGallery({required bool before}) async {
+    if (item == null || readOnly || completing) return;
+
+    final remaining =
+        maxPhotosPerSection -
+        (before ? beforePhotos.length : afterPhotos.length);
+    if (remaining <= 0) return;
+
+    final paths = await _service.addPhotosFromGallery(
+      item!.id.toString(),
+      before,
+      remaining: remaining,
+    );
+
+    if (paths.isEmpty) return;
+
+    if (before) {
+      beforePhotos.addAll(paths);
+    } else {
+      afterPhotos.addAll(paths);
+    }
+
+    await _service.persistPhotos(
+      item!.id.toString(),
+      beforePhotos,
+      afterPhotos,
+    );
+
+    notifyListeners();
+  }
+
+  // =======================
+  // Photos – Remove
+  // =======================
+  Future<void> removePhoto({required bool before, required String path}) async {
+    if (readOnly || completing) return;
+
+    await _service.removePhoto(path);
+
+    if (before) {
+      beforePhotos.remove(path);
+    } else {
+      afterPhotos.remove(path);
+    }
+
+    await _service.persistPhotos(
+      item!.id.toString(),
+      beforePhotos,
+      afterPhotos,
+    );
+
+    notifyListeners();
+  }
+
+  // =======================
+  // PDF
+  // =======================
+  Future<Uint8List> buildPdf(
+    WorkItem item,
+    List<ServiceItem> services,
+    bool attachPhotos,
+    List<String> beforePhotos,
+    List<String> afterPhotos,
+  ) async {
+    return await _service.buildPdf(
+      item,
+      services,
+      attachPhotos,
+      beforePhotos,
+      afterPhotos,
+    );
+  }
+
+  Future<void> sharePdf() async {
+    if (item == null) return;
+
+    final bytes = await buildPdf(
+      item!,
+      services,
+      attachPhotos,
+      beforePhotos,
+      afterPhotos,
+    );
+
+    await _service.sharePdf(bytes, item!);
+  }
+
+  Future<void> savePdf() async {
+    if (item == null) return;
+
+    final bytes = await buildPdf(
+      item!,
+      services,
+      attachPhotos,
+      beforePhotos,
+      afterPhotos,
+    );
+
+    final path = await _service.savePdf(bytes, item!);
+
+    print("Saved at: $path");
+
+    try {
+      await OpenFilex.open(path);
+    } catch (e) {
+      debugPrint("Open failed: $e");
+    }
+  }
+
+  // =======================
+  // Complete
+  // =======================
+ Future<void> complete() async {
+  if (item == null || completing) return;
+
+  completing = true;
+  notifyListeners();
+
+  try {
+    final bytes = await buildPdf(
+      item!,
+      services,
+      attachPhotos,
+      beforePhotos,
+      afterPhotos,
+    );
+
+    // Save PDF
+    await _service.savePdf(bytes, item!);
+
+    // Optional email
+    
+    if (sendEmail) {
+  try {
+    await _service.sendEmail(
+      item!,
+      bytes,
+      beforePhotos,
+      afterPhotos,
+    );
+  } catch (e) {
+    debugPrint("⚠️ Email not available: $e");
+    // DO NOT THROW — allow completion to continue
+  }
+}
+
+
+    // Mark completed in DB
+    await _service.markCompleted(item!.id.toString());
+
+    // Update local state ONLY
+    item = item!.copyWith(
+      status: 'completed',
+      completedAt: DateTime.now(),
+    );
+    readOnly = true;
+  } finally {
+    completing = false;
+    notifyListeners();
+  }
+}
+}

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models.dart';
-import 'service_of_providers/work_items_services.dart';
+import 'package:crm/service_of_providers/work_items_services.dart';
 
 
 class WorkItemsProvider extends ChangeNotifier {
@@ -46,7 +46,7 @@ class WorkItemsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> deleteItem(int id) async {
+  Future<void> deleteItem(String id) async {
     await _service.delete(id);
     _items.removeWhere((e) => e.id == id);
     notifyListeners();

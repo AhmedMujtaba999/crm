@@ -1,5 +1,5 @@
 class WorkItem {
-  final int id;
+  final String id;
   final String status; // 'active' | 'completed'
   final DateTime createdAt; // Activated date = createdAt
   final DateTime? completedAt; // Completed date
@@ -12,6 +12,8 @@ class WorkItem {
 
   final String? beforePhotoPath;
   final String? afterPhotoPath;
+
+  
 
   WorkItem({
     required this.id,
@@ -27,6 +29,37 @@ class WorkItem {
     this.beforePhotoPath,
     this.afterPhotoPath,
   });
+
+    WorkItem copyWith({
+    String? id,
+    String? customerName,
+    String? phone,
+    String? email,
+    String? address,
+    String? notes,
+    double? total,
+    String? status,
+    DateTime? createdAt,
+    DateTime? completedAt,
+    String? beforePhotoPath,
+    String? afterPhotoPath,
+  }) {
+    return WorkItem(
+      id: id ?? this.id,
+      customerName: customerName ?? this.customerName,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      address: address ?? this.address,
+      notes: notes ?? this.notes, 
+      total: total ?? this.total,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      completedAt: completedAt ?? this.completedAt,
+      beforePhotoPath: beforePhotoPath ?? this.beforePhotoPath,
+      afterPhotoPath: afterPhotoPath ?? this.afterPhotoPath,
+    );
+  }
+
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -52,10 +85,8 @@ class WorkItem {
     }
 
     return WorkItem(
-      // ✅ FIXED: id is ALWAYS int
-      id: (m['id'] is int)
-          ? m['id'] as int
-          : int.tryParse(m['id']?.toString() ?? '0') ?? 0,
+    
+      id: (m['id'] ?? '').toString(),
 
       status: (m['status'] ?? 'active').toString(),
       createdAt: DateTime.parse(
