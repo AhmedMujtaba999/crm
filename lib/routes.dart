@@ -5,13 +5,12 @@ import 'splash.dart';
 import 'home_shell.dart';
 import 'task_create.dart';
 import 'invoice.dart';
-
+import 'providers/task_create_provider.dart';
 import 'providers/invoice_provider.dart';
 
 class AppRoutes {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
-
       // ---------------- Splash ----------------
       case '/':
         return MaterialPageRoute(
@@ -20,63 +19,63 @@ class AppRoutes {
         );
 
       // ---------------- Home ----------------
-      case '/home': {
-        int tab = 0;
-        String? workTab;
+      case '/home':
+        {
+          int tab = 0;
+          String? workTab;
 
-        final args = settings.arguments;
-        if (args is Map) {
-          if (args['tab'] is int) tab = args['tab'];
-          if (args['workTab'] is String) workTab = args['workTab'];
+          final args = settings.arguments;
+          if (args is Map) {
+            if (args['tab'] is int) tab = args['tab'];
+            if (args['workTab'] is String) workTab = args['workTab'];
+          }
+
+          return MaterialPageRoute(
+            builder: (_) => HomeShell(initialTab: tab, workTab: workTab),
+            settings: settings,
+          );
         }
-
-        return MaterialPageRoute(
-          builder: (_) => HomeShell(
-            initialTab: tab,
-            workTab: workTab,
-          ),
-          settings: settings,
-        );
-      }
 
       // ---------------- Invoice (WITH PROVIDER) ----------------
-      case '/invoice': {
-        final args = settings.arguments;
+      case '/invoice':
+        {
+          final args = settings.arguments;
 
-        String? workItemId;
+          String? workItemId;
 
-        // Accept: String OR {'id': '...'}
-        if (args is String && args.trim().isNotEmpty) {
-          workItemId = args.trim();
-        } else if (args is Map && args['id'] is String) {
-          workItemId = (args['id'] as String).trim();
-        }
+          // Accept: String OR {'id': '...'}
+          if (args is String && args.trim().isNotEmpty) {
+            workItemId = args.trim();
+          } else if (args is Map && args['id'] is String) {
+            workItemId = (args['id'] as String).trim();
+          }
 
-        // Safety fallback
-        if (workItemId == null) {
-          return MaterialPageRoute(
-            builder: (_) => const Scaffold(
-              body: Center(
-                child: Text("Missing Work Item ID for invoice."),
+          // Safety fallback
+          if (workItemId == null) {
+            return MaterialPageRoute(
+              builder: (_) => const Scaffold(
+                body: Center(child: Text("Missing Work Item ID for invoice.")),
               ),
+            );
+          }
+
+          // ✅ Correct Provider Injection
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => ChangeNotifierProvider(
+              create: (_) => InvoiceProvider()..load(workItemId!),
+              child: const InvoicePage(),
             ),
           );
         }
 
-        // ✅ Correct Provider Injection
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => ChangeNotifierProvider(
-            create: (_) => InvoiceProvider()..load(workItemId!),
-            child: const InvoicePage(),
-          ),
-        );
-      }
-
       // ---------------- Create Task ----------------
       case '/task_create':
         return MaterialPageRoute(
-          builder: (_) => const CreateTaskPage(),
+          builder: (_) => ChangeNotifierProvider(
+            create: (_) => TaskCreateProvider(),
+            child: const CreateTaskPage(),
+          ),
           settings: settings,
         );
 
