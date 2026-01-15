@@ -1,30 +1,33 @@
 import 'package:flutter/material.dart';
-import 'task_create.dart';
+import 'package:provider/provider.dart';
+
 import 'splash.dart';
 import 'home_shell.dart';
+import 'task_create.dart';
 import 'invoice.dart';
+
+import 'providers/invoice_provider.dart';
 
 class AppRoutes {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
+
+      // ---------------- Splash ----------------
       case '/':
         return MaterialPageRoute(
           builder: (_) => const SplashScreen(),
           settings: settings,
         );
 
-      case '/home':
-        // Accept arguments: {'tab': 1, 'workTab': 'active'|'completed'}
+      // ---------------- Home ----------------
+      case '/home': {
         int tab = 0;
         String? workTab;
 
         final args = settings.arguments;
         if (args is Map) {
-          final t = args['tab'];
-          if (t is int) tab = t;
-
-          final wt = args['workTab'];
-          if (wt is String && wt.trim().isNotEmpty) workTab = wt.trim();
+          if (args['tab'] is int) tab = args['tab'];
+          if (args['workTab'] is String) workTab = args['workTab'];
         }
 
         return MaterialPageRoute(
@@ -34,44 +37,51 @@ class AppRoutes {
           ),
           settings: settings,
         );
+      }
 
-      case '/invoice':
-        // Accept String directly OR {'id': '...'}
-        String? workItemId;
+      // ---------------- Invoice (WITH PROVIDER) ----------------
+      case '/invoice': {
         final args = settings.arguments;
 
+        String? workItemId;
+
+        // Accept: String OR {'id': '...'}
         if (args is String && args.trim().isNotEmpty) {
           workItemId = args.trim();
         } else if (args is Map && args['id'] is String) {
-          final id = (args['id'] as String).trim();
-          if (id.isNotEmpty) workItemId = id;
+          workItemId = (args['id'] as String).trim();
         }
 
+        // Safety fallback
         if (workItemId == null) {
-          // Safe fallback screen if someone navigates incorrectly
           return MaterialPageRoute(
             builder: (_) => const Scaffold(
-              body: Center(child: Text("Missing Work Item ID for invoice.")),
+              body: Center(
+                child: Text("Missing Work Item ID for invoice."),
+              ),
             ),
-            settings: settings,
           );
         }
 
-        // Pass the ID via RouteSettings so InvoicePage can read it
+        // ✅ Correct Provider Injection
         return MaterialPageRoute(
-          builder: (_) => const InvoicePage(),
-          settings: RouteSettings(name: '/invoice', arguments: workItemId),
+          settings: settings,
+          builder: (_) => ChangeNotifierProvider(
+            create: (_) => InvoiceProvider()..load(workItemId!),
+            child: const InvoicePage(),
+          ),
         );
+      }
 
+      // ---------------- Create Task ----------------
       case '/task_create':
-        // Create a new task. We return 'true' on save so caller can refresh.
         return MaterialPageRoute(
           builder: (_) => const CreateTaskPage(),
           settings: settings,
         );
 
+      // ---------------- Fallback ----------------
       default:
-        // Unknown route fallback
         return MaterialPageRoute(
           builder: (_) => const SplashScreen(),
           settings: settings,
