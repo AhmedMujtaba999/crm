@@ -1,5 +1,5 @@
 import 'package:uuid/uuid.dart';
-import '../models.dart';
+import 'package:crm/models/models.dart';
 import '../storage.dart';
 
 class TaskCreateService {

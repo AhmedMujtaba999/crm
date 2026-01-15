@@ -1,4 +1,4 @@
-import '../models.dart';
+import 'package:crm/models/models.dart';
 import '../storage.dart';
 
 class TasksService {

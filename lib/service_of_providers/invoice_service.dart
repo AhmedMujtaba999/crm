@@ -5,8 +5,7 @@ import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
-
-import '../models.dart';
+import 'package:crm/models/models.dart';
 import '../storage.dart';
 import 'package:crm/services/invoice_pdf_service.dart';
 import 'package:crm/services/email_service.dart';

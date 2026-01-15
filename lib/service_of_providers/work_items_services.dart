@@ -1,5 +1,5 @@
 import '../storage.dart';
-import '../models.dart';
+import 'package:crm/models/models.dart';
 
 class WorkItemsService {
   Future<List<WorkItem>> getByStatus(String status) async {

@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
-import '../models.dart';
+import 'package:crm/models/models.dart';
 import '../service_of_providers/invoice_service.dart';
 
 class InvoiceProvider extends ChangeNotifier {

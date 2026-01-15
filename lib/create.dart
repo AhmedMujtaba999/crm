@@ -1,7 +1,7 @@
 import 'package:crm/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'models.dart';
+import 'package:crm/models/models.dart';
 import 'widgets.dart';
 import 'package:provider/provider.dart';
 import 'providers/create_work_item_provider.dart';
