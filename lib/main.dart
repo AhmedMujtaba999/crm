@@ -1,4 +1,5 @@
 import 'package:crm/providers/create_work_item_provider.dart';
+import 'package:crm/providers/task_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -16,19 +17,14 @@ Future<void> main() async {
 
   runApp(
     MultiProvider(
-
-      providers:[
-        ChangeNotifierProvider(create: (_)=> CreateWorkItemProvider(),),
-         ChangeNotifierProvider(
-        create: (_) => WorkItemsProvider(),
-        
-      ),
+      providers: [
+        ChangeNotifierProvider(create: (_) => CreateWorkItemProvider()),
+        ChangeNotifierProvider(create: (_) => WorkItemsProvider()),
+        ChangeNotifierProvider(create: (_) => TasksProvider()),
       ],
       child: MyApp(),
     ),
   );
-
-  
 }
 
 class MyApp extends StatelessWidget {

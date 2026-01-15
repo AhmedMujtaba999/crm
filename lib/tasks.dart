@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'storage.dart';
+import 'package:provider/provider.dart';
+
 import 'models.dart';
 import 'widgets.dart';
-import 'create.dart';
 import 'theme.dart';
+import 'create.dart';
+import 'package:crm/providers/task_provider.dart';
 
 class TasksPage extends StatefulWidget {
   const TasksPage({super.key});
@@ -14,44 +16,28 @@ class TasksPage extends StatefulWidget {
 }
 
 class _TasksPageState extends State<TasksPage> {
-  DateTime? _filterDate; // null = default (today tasks first)
-
-  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
-
-  Future<List<TaskItem>> _load() async {
-    await AppDb.instance.seedTasksIfEmpty();
-    return AppDb.instance.listTasks(forDate: _filterDate);
-  }
-
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final initial = _filterDate ?? _dateOnly(now);
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(now.year - 3),
-      lastDate: DateTime(now.year + 3),
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => context.read<TasksProvider>().load(),
     );
-    if (picked == null) return;
-
-    setState(() => _filterDate = _dateOnly(picked));
   }
-
-  void _clearFilter() => setState(() => _filterDate = null);
 
   @override
   Widget build(BuildContext context) {
+    final p = context.watch<TasksProvider>();
+
     final now = DateTime.now();
-    final isTodayMode = _filterDate == null;
+    final isTodayMode = p.filterDate == null;
+    final shownDate = isTodayMode
+        ? DateTime(now.year, now.month, now.day)
+        : p.filterDate!;
 
-    final shownDate = isTodayMode ? _dateOnly(now) : _filterDate!;
-
-    // ✅ avoid repeating the day twice
     final line1 = isTodayMode ? "Today" : DateFormat('EEEE').format(shownDate);
     final line2 = isTodayMode
-        ? DateFormat('EEEE, d MMM').format(shownDate) // Wednesday, 31 Dec
-        : DateFormat('d MMM, y').format(shownDate);   // 1 Jan, 2026
+        ? DateFormat('EEEE, d MMM').format(shownDate)
+        : DateFormat('d MMM, y').format(shownDate);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -59,7 +45,7 @@ class _TasksPageState extends State<TasksPage> {
         children: [
           const GradientHeader(title: "Tasks"),
 
-          // ✅ professional highlighted date banner (no extra date box, no "Calendar" text)
+          /// 🔹 DATE BANNER (UNCHANGED)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Container(
@@ -78,7 +64,6 @@ class _TasksPageState extends State<TasksPage> {
               ),
               child: Row(
                 children: [
-                  // subtle accent bar
                   Container(
                     width: 5,
                     height: 42,
@@ -88,78 +73,66 @@ class _TasksPageState extends State<TasksPage> {
                     ),
                   ),
                   const SizedBox(width: 12),
-
-                  // Date text
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          line1,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        Text(line1,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w900, fontSize: 16)),
                         const SizedBox(height: 2),
-                        Text(
-                          line2,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                            color: Colors.grey,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        Text(line2,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                color: Colors.grey)),
                       ],
                     ),
                   ),
-
-                  // calendar icon only
                   _iconPill(
                     icon: Icons.calendar_month,
                     tooltip: "Pick date",
-                    onTap: _pickDate,
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: shownDate,
+                        firstDate: DateTime(now.year - 3),
+                        lastDate: DateTime(now.year + 3),
+                      );
+                      if (picked != null) {
+                        await p.pickDate(picked);
+                      }
+                    },
                   ),
-
                   const SizedBox(width: 10),
-
-                  // back-to-today icon only when filtered
                   if (!isTodayMode)
                     _iconPill(
                       icon: Icons.today,
                       tooltip: "Back to Today",
-                      onTap: _clearFilter,
+                      onTap: p.clearFilter,
                     ),
                 ],
               ),
             ),
           ),
 
+          /// 🔹 TASK LIST
           Expanded(
-            child: FutureBuilder<List<TaskItem>>(
-              future: _load(),
-              builder: (context, snap) {
-                if (!snap.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final list = snap.data!;
-                if (list.isEmpty) return const EmptyState(text: "No tasks");
-
-                return RefreshIndicator(
-                  onRefresh: () async => setState(() {}),
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: list.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (_, i) => _taskCard(list[i]),
-                  ),
-                );
-              },
-            ),
+            child: p.loading
+                ? const Center(child: CircularProgressIndicator())
+                : p.tasks.isEmpty
+                    ? const EmptyState(text: "No tasks")
+                    : RefreshIndicator(
+                        onRefresh: p.load,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: p.tasks.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (_, i) =>
+                              _taskCard(context, p.tasks[i]),
+                        ),
+                      ),
           ),
         ],
       ),
@@ -197,7 +170,7 @@ class _TasksPageState extends State<TasksPage> {
     );
   }
 
-  Widget _taskCard(TaskItem t) {
+  Widget _taskCard(BuildContext context, TaskItem t) {
     final sched = DateFormat('M/d/y').format(t.scheduledAt);
 
     return Container(
@@ -217,17 +190,20 @@ class _TasksPageState extends State<TasksPage> {
         children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(t.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              Text(t.title,
+                  style:
+                      const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
               const SizedBox(height: 6),
               Text(t.customerName, style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 4),
               Text(t.phone, style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 10),
-              Text("Scheduled $sched", style: const TextStyle(color: Colors.grey)),
+              Text("Scheduled $sched",
+                  style: const TextStyle(color: Colors.grey)),
             ]),
           ),
           TextButton(
-            onPressed: () => _openTaskMenu(t),
+            onPressed: () => _openTaskMenu(context, t),
             child: const Text("Open"),
           ),
         ],
@@ -235,7 +211,9 @@ class _TasksPageState extends State<TasksPage> {
     );
   }
 
-  void _openTaskMenu(TaskItem task) {
+  void _openTaskMenu(BuildContext context, TaskItem task) {
+    final p = context.read<TasksProvider>();
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -245,14 +223,20 @@ class _TasksPageState extends State<TasksPage> {
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
-            Expanded(child: Text(task.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18))),
-            IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+            Expanded(
+                child: Text(task.title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w900, fontSize: 18))),
+            IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close)),
           ]),
           const SizedBox(height: 8),
 
           ListTile(
             leading: const Icon(Icons.visibility_outlined),
-            title: const Text("View Task", style: TextStyle(fontWeight: FontWeight.w800)),
+            title: const Text("View Task",
+                style: TextStyle(fontWeight: FontWeight.w800)),
             onTap: () {
               Navigator.pop(context);
               showDialog(
@@ -270,23 +254,29 @@ class _TasksPageState extends State<TasksPage> {
 
           ListTile(
             leading: const Icon(Icons.delete_outline, color: Colors.red),
-            title: const Text("Delete Task", style: TextStyle(fontWeight: FontWeight.w800, color: Colors.red)),
+            title: const Text("Delete Task",
+                style:
+                    TextStyle(fontWeight: FontWeight.w800, color: Colors.red)),
             onTap: () async {
-              await AppDb.instance.deleteTask(task.id);
-              if (mounted) setState(() {});
+              await p.delete(task);
               if (Navigator.canPop(context)) Navigator.pop(context);
             },
           ),
 
           ListTile(
             leading: const Icon(Icons.play_arrow_outlined),
-            title: const Text("Activate Task", style: TextStyle(fontWeight: FontWeight.w800)),
-            subtitle: const Text("Will open Create page with prefilled customer"),
+            title: const Text("Activate Task",
+                style: TextStyle(fontWeight: FontWeight.w800)),
+            subtitle:
+                const Text("Will open Create page with prefilled customer"),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => CreateWorkItemPage(prefillTask: task)),
+                MaterialPageRoute(
+                  builder: (_) =>
+                      CreateWorkItemPage(prefillTask: task),
+                ),
               );
             },
           ),
