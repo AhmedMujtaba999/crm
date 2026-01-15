@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
 import '../models.dart';
 
@@ -7,13 +8,13 @@ class EmailService {
     required WorkItem item,
     required String pdfPath,
     bool attachPhotos = true,
-
-    // ✅ NEW
     List<String> beforePhotoPaths = const [],
     List<String> afterPhotoPaths = const [],
   }) async {
     final recipient = item.email.trim();
-    if (recipient.isEmpty) throw Exception("Customer email is empty.");
+    if (recipient.isEmpty) {
+      throw Exception("Customer email is empty.");
+    }
 
     final attachments = <String>[];
 
@@ -23,17 +24,37 @@ class EmailService {
 
     if (attachPhotos) {
       for (final p in beforePhotoPaths) {
-        final path = p.trim();
-        if (path.isNotEmpty && File(path).existsSync()) attachments.add(path);
+        if (p.trim().isNotEmpty && File(p).existsSync()) {
+          attachments.add(p);
+        }
       }
       for (final p in afterPhotoPaths) {
-        final path = p.trim();
-        if (path.isNotEmpty && File(path).existsSync()) attachments.add(path);
+        if (p.trim().isNotEmpty && File(p).existsSync()) {
+          attachments.add(p);
+        }
       }
     }
 
-    final subject = "Invoice - ${item.customerName} (${_shortId(item.id.toString())})";
-    final body = """
+    final email = Email(
+      subject: "Invoice - ${item.customerName} (${_shortId(item.id.toString())})",
+      body: _emailBody(item),
+      recipients: [recipient],
+      attachmentPaths: attachments,
+      isHTML: false,
+    );
+
+    try {
+      await FlutterEmailSender.send(email);
+    } on PlatformException catch (e) {
+      // 🚨 CRITICAL FIX: prevent app crash
+      if (e.code == 'not_available') {
+        throw Exception("No email app available on this device.");
+      }
+      rethrow;
+    }
+  }
+
+  String _emailBody(WorkItem item) => """
 Hi ${item.customerName},
 
 Please find your invoice attached.
@@ -44,16 +65,6 @@ Total: \$${item.total.toStringAsFixed(2)}
 Thank you!
 """;
 
-    final email = Email(
-      body: body,
-      subject: subject,
-      recipients: [recipient],
-      attachmentPaths: attachments,
-      isHTML: false,
-    );
-
-    await FlutterEmailSender.send(email);
-  }
-
-  String _shortId(String id) => id.length >= 6 ? id.substring(0, 6).toUpperCase() : id.toUpperCase();
+  String _shortId(String id) =>
+      id.length >= 6 ? id.substring(0, 6).toUpperCase() : id.toUpperCase();
 }
