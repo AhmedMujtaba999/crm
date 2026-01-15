@@ -2,12 +2,9 @@ import 'package:crm/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'models.dart';
-import 'package:uuid/uuid.dart';
-
 import 'widgets.dart';
 import 'package:provider/provider.dart';
 import 'providers/create_work_item_provider.dart';
-
 
 class CreateWorkItemPage extends StatefulWidget {
   final TaskItem? prefillTask;
@@ -43,16 +40,17 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
     final normPhone = phone.replaceAll(RegExp(r'\D'), '');
     final normEmail = email.trim().toLowerCase();
     final existing = await context
-    .read<CreateWorkItemProvider>()
-    .findLatestByCustomer(phone: normPhone, email: normEmail);
-
+        .read<CreateWorkItemProvider>()
+        .findLatestByCustomer(phone: normPhone, email: normEmail);
 
     final res = await showDialog<CustomerExistsAction>(
       context: context,
       barrierDismissible: false,
       builder: (_) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -68,16 +66,35 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
                         color: AppColors.primary,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.person, color: Colors.white, size: 28),
+                      child: const Icon(
+                        Icons.person,
+                        color: Colors.white,
+                        size: 28,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text("Customer Already Exists", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-                        const SizedBox(height: 4),
-                        Text(phone, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                      ]),
-                    )
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Customer Already Exists",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            phone,
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -90,13 +107,33 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: const Color(0xFFEFEFEF)),
                     ),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(existing.customerName, style: const TextStyle(fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 6),
-                      if (existing.email.trim().isNotEmpty) Text(existing.email, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                      const SizedBox(height: 4),
-                      if (existing.address.trim().isNotEmpty) Text(existing.address, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                    ]),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          existing.customerName,
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 6),
+                        if (existing.email.trim().isNotEmpty)
+                          Text(
+                            existing.email,
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                            ),
+                          ),
+                        const SizedBox(height: 4),
+                        if (existing.address.trim().isNotEmpty)
+                          Text(
+                            existing.address,
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
 
                 const SizedBox(height: 12),
@@ -112,7 +149,10 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
                       child: SizedBox(
                         height: 46,
                         child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context, CustomerExistsAction.openExisting),
+                          onPressed: () => Navigator.pop(
+                            context,
+                            CustomerExistsAction.openExisting,
+                          ),
                           child: const Text("Open Existing"),
                         ),
                       ),
@@ -122,7 +162,10 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
                       child: SizedBox(
                         height: 46,
                         child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context, CustomerExistsAction.createNew),
+                          onPressed: () => Navigator.pop(
+                            context,
+                            CustomerExistsAction.createNew,
+                          ),
                           child: const Text("Create New"),
                         ),
                       ),
@@ -132,7 +175,8 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
                 const SizedBox(height: 8),
                 Center(
                   child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context, CustomerExistsAction.cancel),
+                    onPressed: () =>
+                        Navigator.pop(context, CustomerExistsAction.cancel),
                     child: const Text("Cancel"),
                   ),
                 ),
@@ -155,14 +199,13 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
   ];
 
   String selectedService = 'Select service';
-//final List<ServiceItem> services = [];
-double get total =>
-    context.read<CreateWorkItemProvider>().total;
+  //final List<ServiceItem> services = [];
+  double get total => context.read<CreateWorkItemProvider>().total;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask((){
+    Future.microtask(() {
       context.read<CreateWorkItemProvider>().resetConfirmedCreate();
     });
     final t = widget.prefillTask;
@@ -174,8 +217,12 @@ double get total =>
     }
 
     phoneC.addListener(() {
-      final currentNormalized = phoneC.text.trim().replaceAll(RegExp(r'\D'), '');
-      if (_confirmedCreateForPhone != null && currentNormalized != _confirmedCreateForPhone) {
+      final currentNormalized = phoneC.text.trim().replaceAll(
+        RegExp(r'\D'),
+        '',
+      );
+      if (_confirmedCreateForPhone != null &&
+          currentNormalized != _confirmedCreateForPhone) {
         setState(() => _confirmedCreateForPhone = null);
       }
     });
@@ -202,310 +249,384 @@ double get total =>
     List<TextInputFormatter>? inputFormatters,
     int maxLines = 1,
   }) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(
-        children: [
-          Icon(icon, color: AppColors.subText, size: 18),
-          const SizedBox(width: 8),
-          Text(label, style: const TextStyle(color: AppColors.subText, fontWeight: FontWeight.w700)),
-        ],
-      ),
-      const SizedBox(height: 8),
-      TextFormField(
-        controller: controller,
-        keyboardType: keyboard,
-        validator: validator,
-        inputFormatters: inputFormatters,
-        maxLines: maxLines,
-        decoration: InputDecoration(
-          hintText: hint,
-          filled: true,
-          fillColor: Colors.white,
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.border),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: AppColors.primary),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: AppColors.subText, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.subText,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboard,
+          validator: validator,
+          inputFormatters: inputFormatters,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            hintText: hint,
+            filled: true,
+            fillColor: Colors.white,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: AppColors.primary),
+            ),
           ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
   void addService() {
-  final amt = double.tryParse(amountC.text.trim());
-  if (selectedService == 'Select service') return;
-  if (amt == null || amt <= 0) return;
+    final amt = double.tryParse(amountC.text.trim());
+    if (selectedService == 'Select service') return;
+    if (amt == null || amt <= 0) return;
 
-  context.read<CreateWorkItemProvider>().addService(
-        selectedService,
-        (amt * 100).round() / 100,
-      );
+    context.read<CreateWorkItemProvider>().addService(
+      selectedService,
+      (amt * 100).round() / 100,
+    );
 
-  amountC.clear();
-  setState(() => selectedService = 'Select service');
-}
+    amountC.clear();
+    setState(() => selectedService = 'Select service');
+  }
 
-
-  
-Future<void> saveWorkItem() async {
+  Future<void> saveWorkItem() async {
     final provider = context.read<CreateWorkItemProvider>();
 
+    final valid = _formKey.currentState?.validate() ?? true;
+    if (!valid) return;
 
-  
-  final valid = _formKey.currentState?.validate() ?? true;
-  if (!valid) return;
-
-  if (provider.services.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Add at least one service")),
-    );
-    return;
-  }
-
-  final rawPhone = phoneC.text.trim();
-  final rawEmail = emailC.text.trim();
-
-  final phone = rawPhone.replaceAll(RegExp(r'\D'), '');
-  final email = rawEmail.toLowerCase();
-
-  try {
-    final exists = await provider.customerExists(
-      phone: phone,
-      email: email,
-    );
-
-    if (exists && provider.confirmedCreateForPhone != phone) {
-      final action =
-          await showCustomerExistsDialog(context, rawPhone, rawEmail);
-
-      if (action == CustomerExistsAction.cancel) return;
-
-      if (action == CustomerExistsAction.openExisting) {
-        final existing =
-            await provider.findLatestByCustomer(phone: phone, email: email);
-        if (existing != null && mounted) {
-          Navigator.pushNamed(context, '/invoice',
-              arguments: existing.id);
-        }
-        return;
-      }
-
-      if (action == CustomerExistsAction.createNew) {
-        provider.confirmedCreateForPhone = phone;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Details prefilled. Tap Save again to continue.'),
-          ),
-        );
-        return;
-      }
+    if (provider.services.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Add at least one service")));
+      return;
     }
 
-    await provider.save(
-      customerName: nameC.text.trim(),
-      phone: rawPhone,
-      email: rawEmail,
-      address: addressC.text.trim(),
-      notes: notesC.text.trim(),
-    );
+    final rawPhone = phoneC.text.trim();
+    final rawEmail = emailC.text.trim();
 
-    if (!mounted) return;
+    final phone = rawPhone.replaceAll(RegExp(r'\D'), '');
+    final email = rawEmail.toLowerCase();
 
-    Navigator.pushNamedAndRemoveUntil(
-      context,
-      '/home',
-      (_) => false,
-      arguments: {'tab': 1, 'workTab': 'active'},
-    );
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Save failed: $e")),
-    );
+    try {
+      final exists = await provider.customerExists(phone: phone, email: email);
+
+      if (exists && provider.confirmedCreateForPhone != phone) {
+        final action = await showCustomerExistsDialog(
+          context,
+          rawPhone,
+          rawEmail,
+        );
+
+        if (action == CustomerExistsAction.cancel) return;
+
+        if (action == CustomerExistsAction.openExisting) {
+          final existing = await provider.findLatestByCustomer(
+            phone: phone,
+            email: email,
+          );
+          if (existing != null && mounted) {
+            Navigator.pushNamed(context, '/invoice', arguments: existing.id);
+          }
+          return;
+        }
+
+        if (action == CustomerExistsAction.createNew) {
+          provider.confirmedCreateForPhone = phone;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Details prefilled. Tap Save again to continue.'),
+            ),
+          );
+          return;
+        }
+      }
+
+      await provider.save(
+        customerName: nameC.text.trim(),
+        phone: rawPhone,
+        email: rawEmail,
+        address: addressC.text.trim(),
+        notes: notesC.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/home',
+        (_) => false,
+        arguments: {'tab': 1, 'workTab': 'active'},
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Save failed: $e")));
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<CreateWorkItemProvider>();
-final services = provider.services;
+    final services = provider.services;
 
     return Scaffold(
-      body: Column(children: [
-        const GradientHeader(title: "Create Work Item"),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(children: [
-              CardBox(
-                title: "Customer Details",
-                child: Form(
-                  key: _formKey,
-                  child: Column(children: [
-                    _buildTextFormField(
-                      label: "Customer Name",
-                      hint: "Enter customer name",
-                      icon: Icons.person_outline,
-                      controller: nameC,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Customer name is required' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTextFormField(
-                      label: "Phone Number",
-                      hint: "Enter phone number",
-                      icon: Icons.phone_outlined,
-                      controller: phoneC,
-                      keyboard: TextInputType.phone,
-                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\s\-\(\)]'))],
-                      validator: (v) {
-                        final t = v?.trim() ?? '';
-                        if (t.isEmpty) return null;
-                        final digits = t.replaceAll(RegExp(r'\D'), '');
-                        if (digits.length < 6) return 'Enter a valid phone number';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTextFormField(
-                      label: "Email",
-                      hint: "Enter email address",
-                      icon: Icons.email_outlined,
-                      controller: emailC,
-                      keyboard: TextInputType.emailAddress,
-                      validator: (v) {
-                        final t = v?.trim() ?? '';
-                        if (t.isEmpty) return null;
-                        final re = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-                        if (!re.hasMatch(t)) return 'Enter a valid email';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    _buildTextFormField(
-                      label: "Address",
-                      hint: "Enter address",
-                      icon: Icons.location_on_outlined,
-                      controller: addressC,
-                    ),
-                  ]),
-                ),
-              ),
-              const SizedBox(height: 14),
-              CardBox(
-                title: "Services",
-                child: Column(children: [
-                  Row(children: [
-                    Expanded(
-                      child: Container(
-                        height: 52,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
-                          color: Colors.white,
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: selectedService,
-                            isExpanded: true,
-                            items: demoServices.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                            onChanged: (v) => setState(() => selectedService = v ?? selectedService),
+      body: Column(
+        children: [
+          const GradientHeader(title: "Create Work Item"),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  CardBox(
+                    title: "Customer Details",
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          _buildTextFormField(
+                            label: "Customer Name",
+                            hint: "Enter customer name",
+                            icon: Icons.person_outline,
+                            controller: nameC,
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Customer name is required'
+                                : null,
                           ),
-                        ),
+                          const SizedBox(height: 12),
+                          _buildTextFormField(
+                            label: "Phone Number",
+                            hint: "Enter phone number",
+                            icon: Icons.phone_outlined,
+                            controller: phoneC,
+                            keyboard: TextInputType.phone,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[0-9+\s\-\(\)]'),
+                              ),
+                            ],
+                            validator: (v) {
+                              final t = v?.trim() ?? '';
+                              if (t.isEmpty) return null;
+                              final digits = t.replaceAll(RegExp(r'\D'), '');
+                              if (digits.length < 6)
+                                return 'Enter a valid phone number';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _buildTextFormField(
+                            label: "Email",
+                            hint: "Enter email address",
+                            icon: Icons.email_outlined,
+                            controller: emailC,
+                            keyboard: TextInputType.emailAddress,
+                            validator: (v) {
+                              final t = v?.trim() ?? '';
+                              if (t.isEmpty) return null;
+                              final re = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+                              if (!re.hasMatch(t)) return 'Enter a valid email';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          _buildTextFormField(
+                            label: "Address",
+                            hint: "Enter address",
+                            icon: Icons.location_on_outlined,
+                            controller: addressC,
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 95,
-                      child: TextField(
-                        controller: amountC,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9\.]'))],
-                        decoration: InputDecoration(
-                          hintText: "Amount",
-                          filled: true,
-                          fillColor: Colors.white,
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: const BorderSide(color: Color(0xFF2F5BFF)),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 52,
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: () { context.read<CreateWorkItemProvider>().addService(selectedService, double.parse(amountC.text),);},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2F5BFF),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                        child: const Icon(Icons.add, color: Colors.white),
-                      ),
-                    ),
-                  ]),
-                  const SizedBox(height: 12),
-                  if (services.isNotEmpty) ...[
-                    ...services.map((s) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: ServiceRow(
-                            name: s.name,
-                            amount: s.amount,
-                            onDelete: () =>
-    context.read<CreateWorkItemProvider>().removeService(s),
-
-                          ),
-                        )),
-                    const Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text("Total Amount", style: TextStyle(fontWeight: FontWeight.w900)),
-                        Text("\$${total.toStringAsFixed(2)}", style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF2F5BFF))),
-                      ],
-                    ),
-                  ],
-                ]),
-              ),
-              const SizedBox(height: 14),
-              CardBox(
-                title: "Notes (Optional)",
-                child: TextField(
-                  controller: notesC,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    hintText: "Add any additional notes or remarks...",
-                    filled: true,
-                    fillColor: Colors.white,
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: Color(0xFF2F5BFF)),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 14),
+                  CardBox(
+                    title: "Services",
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                height: 52,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: const Color(0xFFE5E7EB),
+                                  ),
+                                  color: Colors.white,
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: selectedService,
+                                    isExpanded: true,
+                                    items: demoServices
+                                        .map(
+                                          (s) => DropdownMenuItem(
+                                            value: s,
+                                            child: Text(s),
+                                          ),
+                                        )
+                                        .toList(),
+                                    onChanged: (v) => setState(
+                                      () => selectedService =
+                                          v ?? selectedService,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            SizedBox(
+                              width: 95,
+                              child: TextField(
+                                controller: amountC,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9\.]'),
+                                  ),
+                                ],
+                                decoration: InputDecoration(
+                                  hintText: "Amount",
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFF2F5BFF),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            SizedBox(
+                              width: 52,
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  context
+                                      .read<CreateWorkItemProvider>()
+                                      .addService(
+                                        selectedService,
+                                        double.parse(amountC.text),
+                                      );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF2F5BFF),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.add,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (services.isNotEmpty) ...[
+                          ...services.map(
+                            (s) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: ServiceRow(
+                                name: s.name,
+                                amount: s.amount,
+                                onDelete: () => context
+                                    .read<CreateWorkItemProvider>()
+                                    .removeService(s),
+                              ),
+                            ),
+                          ),
+                          const Divider(),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                "Total Amount",
+                                style: TextStyle(fontWeight: FontWeight.w900),
+                              ),
+                              Text(
+                                "\$${total.toStringAsFixed(2)}",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF2F5BFF),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  CardBox(
+                    title: "Notes (Optional)",
+                    child: TextField(
+                      controller: notesC,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        hintText: "Add any additional notes or remarks...",
+                        filled: true,
+                        fillColor: Colors.white,
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFE5E7EB),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF2F5BFF),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  GradientButton(
+                    text: _isSaving ? "Saving…" : "Save Work Item",
+                    onTap: _isSaving ? null : saveWorkItem,
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              GradientButton(
-                text: _isSaving ? "Saving…" : "Save Work Item",
-                onTap: _isSaving ? null : saveWorkItem,
-              ),
-            ]),
+            ),
           ),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 }
