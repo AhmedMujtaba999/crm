@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-
 import 'package:crm/models/models.dart';
 import 'widgets.dart';
 import 'theme.dart';
@@ -77,15 +76,22 @@ class _TasksPageState extends State<TasksPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(line1,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w900, fontSize: 16)),
+                        Text(
+                          line1,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text(line2,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                                color: Colors.grey)),
+                        Text(
+                          line2,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -121,18 +127,16 @@ class _TasksPageState extends State<TasksPage> {
             child: p.loading
                 ? const Center(child: CircularProgressIndicator())
                 : p.tasks.isEmpty
-                    ? const EmptyState(text: "No tasks")
-                    : RefreshIndicator(
-                        onRefresh: p.load,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: p.tasks.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 12),
-                          itemBuilder: (_, i) =>
-                              _taskCard(context, p.tasks[i]),
-                        ),
-                      ),
+                ? const EmptyState(text: "No tasks")
+                : RefreshIndicator(
+                    onRefresh: p.load,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: p.tasks.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (_, i) => _taskCard(context, p.tasks[i]),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -161,7 +165,7 @@ class _TasksPageState extends State<TasksPage> {
                 color: Color(0x0F000000),
                 blurRadius: 10,
                 offset: Offset(0, 6),
-              )
+              ),
             ],
           ),
           child: Icon(icon, color: AppColors.primary),
@@ -183,24 +187,36 @@ class _TasksPageState extends State<TasksPage> {
             color: Color(0x11000000),
             blurRadius: 12,
             offset: Offset(0, 6),
-          )
+          ),
         ],
       ),
       child: Row(
         children: [
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(t.title,
-                  style:
-                      const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-              const SizedBox(height: 6),
-              Text(t.customerName, style: const TextStyle(color: Colors.grey)),
-              const SizedBox(height: 4),
-              Text(t.phone, style: const TextStyle(color: Colors.grey)),
-              const SizedBox(height: 10),
-              Text("Scheduled $sched",
-                  style: const TextStyle(color: Colors.grey)),
-            ]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t.title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  t.customerName,
+                  style: const TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 4),
+                Text(t.phone, style: const TextStyle(color: Colors.grey)),
+                const SizedBox(height: 10),
+                Text(
+                  "Scheduled $sched",
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              ],
+            ),
           ),
           TextButton(
             onPressed: () => _openTaskMenu(context, t),
@@ -221,66 +237,85 @@ class _TasksPageState extends State<TasksPage> {
       ),
       builder: (_) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(children: [
-            Expanded(
-                child: Text(task.title,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    task.title,
                     style: const TextStyle(
-                        fontWeight: FontWeight.w900, fontSize: 18))),
-            IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close)),
-          ]),
-          const SizedBox(height: 8),
-
-          ListTile(
-            leading: const Icon(Icons.visibility_outlined),
-            title: const Text("View Task",
-                style: TextStyle(fontWeight: FontWeight.w800)),
-            onTap: () {
-              Navigator.pop(context);
-              showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: Text(task.title),
-                  content: Text(
-                    "${task.customerName}\n${task.phone}\n${task.email}\n${task.address}"
-                    "\n\nScheduled: ${DateFormat('EEE, MMM d, y').format(task.scheduledAt)}",
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                    ),
                   ),
                 ),
-              );
-            },
-          ),
-
-          ListTile(
-            leading: const Icon(Icons.delete_outline, color: Colors.red),
-            title: const Text("Delete Task",
-                style:
-                    TextStyle(fontWeight: FontWeight.w800, color: Colors.red)),
-            onTap: () async {
-              await p.delete(task);
-              if (Navigator.canPop(context)) Navigator.pop(context);
-            },
-          ),
-
-          ListTile(
-            leading: const Icon(Icons.play_arrow_outlined),
-            title: const Text("Activate Task",
-                style: TextStyle(fontWeight: FontWeight.w800)),
-            subtitle:
-                const Text("Will open Create page with prefilled customer"),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      CreateWorkItemPage(prefillTask: task),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
                 ),
-              );
-            },
-          ),
-        ]),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            ListTile(
+              leading: const Icon(Icons.visibility_outlined),
+              title: const Text(
+                "View Task",
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: Text(task.title),
+                    content: Text(
+                      "${task.customerName}\n${task.phone}\n${task.email}\n${task.address}"
+                      "\n\nScheduled: ${DateFormat('EEE, MMM d, y').format(task.scheduledAt)}",
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text(
+                "Delete Task",
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: Colors.red,
+                ),
+              ),
+              onTap: () async {
+                await p.delete(task);
+                if (Navigator.canPop(context)) Navigator.pop(context);
+              },
+            ),
+
+            ListTile(
+              leading: const Icon(Icons.play_arrow_outlined),
+              title: const Text(
+                "Activate Task",
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: const Text(
+                "Will open Create page with prefilled customer",
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CreateWorkItemPage(prefillTask: task),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
