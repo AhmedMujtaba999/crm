@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 import 'theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -14,9 +16,10 @@ class _SplashScreenState extends State<SplashScreen> {
 void initState() {
   super.initState();
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    Future.delayed(const Duration(milliseconds: 900), () {
+    Future.delayed(const Duration(milliseconds: 900), () async{
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/home');
+       await context.read<AuthProvider>().checkAuth();
+    Navigator.pushReplacementNamed(context, '/auth');
     });
   });
 }
