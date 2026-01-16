@@ -1,6 +1,6 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
-import 'models.dart';
+import 'package:crm/models/models.dart';
 
 class AppDb {
   AppDb._();

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-import '../models.dart';
+import 'package:crm/models/models.dart';
 import 'package:crm/service_of_providers/create_work_item_service.dart';
 
 class CreateWorkItemProvider extends ChangeNotifier {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models.dart';
+import 'package:crm/models/models.dart';
 import 'package:crm/service_of_providers/task_service.dart';
 
 class TasksProvider extends ChangeNotifier {

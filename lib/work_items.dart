@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'models.dart';
+import 'package:crm/models/models.dart';
 import 'widgets.dart';
 import 'theme.dart';
 import 'providers/work_items_provider.dart';

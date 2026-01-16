@@ -1,5 +1,5 @@
 import '../storage.dart';
-import '../models.dart';
+import 'package:crm/models/models.dart';
 
 import 'package:uuid/uuid.dart';
 

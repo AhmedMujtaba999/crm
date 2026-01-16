@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
-import '../models.dart';
+import 'package:crm/models/models.dart';
 
 class EmailService {
   Future<void> sendInvoiceEmail({

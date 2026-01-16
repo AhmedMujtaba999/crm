@@ -1,3 +1,5 @@
+import 'package:crm/authgate.dart';
+import 'package:crm/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +9,7 @@ import 'task_create.dart';
 import 'invoice.dart';
 import 'providers/task_create_provider.dart';
 import 'providers/invoice_provider.dart';
+import 'providers/home_shell_provider.dart';
 
 class AppRoutes {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -31,8 +34,11 @@ class AppRoutes {
           }
 
           return MaterialPageRoute(
-            builder: (_) => HomeShell(initialTab: tab, workTab: workTab),
             settings: settings,
+            builder: (_) => ChangeNotifierProvider(
+              create: (_) => HomeShellProvider(),
+              child: HomeShell(initialTab: tab, workTab: workTab),
+            ),
           );
         }
 
@@ -75,6 +81,16 @@ class AppRoutes {
           builder: (_) => ChangeNotifierProvider(
             create: (_) => TaskCreateProvider(),
             child: const CreateTaskPage(),
+          ),
+          settings: settings,
+        );
+
+      //--------------Auth-----------------
+      case '/auth':
+        return MaterialPageRoute(
+          builder: (_) => ChangeNotifierProvider( 
+            create: (_) => AuthProvider(),
+            child: AuthGate(),
           ),
           settings: settings,
         );
