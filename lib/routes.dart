@@ -1,3 +1,5 @@
+import 'package:crm/authgate.dart';
+import 'package:crm/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -20,27 +22,25 @@ class AppRoutes {
         );
 
       // ---------------- Home ----------------
-    case '/home': {
-  int tab = 0;
-  String? workTab;
+      case '/home':
+        {
+          int tab = 0;
+          String? workTab;
 
-  final args = settings.arguments;
-  if (args is Map) {
-    if (args['tab'] is int) tab = args['tab'];
-    if (args['workTab'] is String) workTab = args['workTab'];
-  }
+          final args = settings.arguments;
+          if (args is Map) {
+            if (args['tab'] is int) tab = args['tab'];
+            if (args['workTab'] is String) workTab = args['workTab'];
+          }
 
-  return MaterialPageRoute(
-    settings: settings,
-    builder: (_) => ChangeNotifierProvider(
-      create: (_) => HomeShellProvider(),
-      child: HomeShell(
-        initialTab: tab,
-        workTab: workTab,
-      ),
-    ),
-  );
-}
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => ChangeNotifierProvider(
+              create: (_) => HomeShellProvider(),
+              child: HomeShell(initialTab: tab, workTab: workTab),
+            ),
+          );
+        }
 
       // ---------------- Invoice (WITH PROVIDER) ----------------
       case '/invoice':
@@ -81,6 +81,16 @@ class AppRoutes {
           builder: (_) => ChangeNotifierProvider(
             create: (_) => TaskCreateProvider(),
             child: const CreateTaskPage(),
+          ),
+          settings: settings,
+        );
+
+      //--------------Auth-----------------
+      case '/auth':
+        return MaterialPageRoute(
+          builder: (_) => ChangeNotifierProvider( 
+            create: (_) => AuthProvider(),
+            child: AuthGate(),
           ),
           settings: settings,
         );
