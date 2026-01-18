@@ -292,4 +292,25 @@ class AppDb {
   Future<void> deleteTask(String id) async {
     await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
   }
+  // ... existing code ...
+
+Future<void> updateWorkItemCustomerInfo({
+  required String workItemId,
+  required String customerName,
+  required String phone,
+  required String email,
+  required String address,
+}) async {
+  await db.update(
+    'work_items',
+    {
+      'customerName': customerName,
+      'phone': phone,
+      'email': email,
+      'address': address,
+    },
+    where: 'id = ?',
+    whereArgs: [workItemId],
+  );
+}
 }
