@@ -27,6 +27,7 @@ class InvoiceService {
 
   // ---------------- Load ----------------
   Future<InvoiceLoadResult> loadInvoice(String id) async {
+    
     final item = await AppDb.instance.getWorkItem(id);
     final services = await AppDb.instance.listServices(id);
 
@@ -117,28 +118,47 @@ Future<String> savePdf(Uint8List bytes, WorkItem item) async {
 }
 
 
-
-
-  // ---------------- Email ----------------
-  Future<void> sendEmail(
+// ---------------- Email ----------------
+Future<void> sendEmail(
   WorkItem item,
   Uint8List pdfBytes,
   List<String> before,
-  List<String> after,
-) async {
-  // Save temp PDF for email attachment
-  final dir = await _invoiceDir(item.id);
-  final file = File('${dir.path}/invoice_${item.id}.pdf');
+  List<String> after, {
+  required bool attachPhotos, // ✅ CONTROLLED BY UI
+}) async {
+  // ✅ Use temp directory so email apps can read the file reliably
+  final tempDir = await getTemporaryDirectory();
+  final file = File('${tempDir.path}/invoice_${item.id}.pdf');
+
   await file.writeAsBytes(pdfBytes, flush: true);
 
   return _emailService.sendInvoiceEmail(
     item: item,
-    pdfPath: file.path,
-    attachPhotos: true,
+    pdfPath: file.path,        // ✅ ALWAYS PDF
+    attachPhotos: attachPhotos, // ✅ photos optional
     beforePhotoPaths: before,
     afterPhotoPaths: after,
   );
 }
+
+
+
+Future<void> updateCustomerInfo({
+  required String workItemId,
+  required String customerName,
+  required String phone,
+  required String email,
+  required String address,
+}) async {
+  await AppDb.instance.updateWorkItemCustomerInfo(
+    workItemId: workItemId,
+    customerName: customerName,
+    phone: phone,
+    email: email,
+    address: address,
+  );
+}
+
 
 
   Future<void> markCompleted(String id) {

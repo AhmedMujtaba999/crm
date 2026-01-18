@@ -79,60 +79,60 @@ class _InvoicePageState extends State<InvoicePage> {
   }
 
   // ===================== COMPLETE =====================
- Future<void> _completeWorkItem() async {
-  final p = context.read<InvoiceProvider>();
+  Future<void> _completeWorkItem() async {
+    final p = context.read<InvoiceProvider>();
 
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: const Text("Complete work item?"),
-      content: Text(
-        p.sendEmail
-            ? "This will mark the work item as completed and send the invoice email."
-            : "This will mark the work item as completed.",
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Complete work item?"),
+        content: Text(
+          p.sendEmail
+              ? "This will mark the work item as completed and send the invoice email."
+              : "This will mark the work item as completed.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Complete"),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text("Cancel"),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: const Text("Complete"),
-        ),
-      ],
-    ),
-  );
+    );
 
-  if (ok != true) return;
+    if (ok != true) return;
 
-  /// 1️⃣ COMPLETE (NO NAVIGATION YET)
-  await p.complete();
+    /// 1️⃣ COMPLETE (NO NAVIGATION YET)
+    await p.complete();
 
-  if (!mounted) return;
+    if (!mounted) return;
 
-  /// 2️⃣ SHOW GREEN POPUP (BLOCKING)
-  await _showCompletedPrompt();
+    /// 2️⃣ SHOW GREEN POPUP (BLOCKING)
+    await _showCompletedPrompt();
 
-  if (!mounted) return;
+    if (!mounted) return;
 
-  /// 3️⃣ REFRESH COMPLETED LIST
-  await context.read<WorkItemsProvider>().load(
-        active: false,
-        byDate: false,
-        selectedDate: DateTime.now(),
-      );
+    /// 3️⃣ REFRESH COMPLETED LIST
+    await context.read<WorkItemsProvider>().load(
+      active: false,
+      byDate: false,
+      selectedDate: DateTime.now(),
+    );
 
-  if (!mounted) return;
+    if (!mounted) return;
 
-  /// 4️⃣ NOW NAVIGATE
-  Navigator.pushNamedAndRemoveUntil(
-    context,
-    '/home',
-    (_) => false,
-    arguments: {'tab': 1, 'workTab': 'completed'},
-  );
-}
+    /// 4️⃣ NOW NAVIGATE
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/home',
+      (_) => false,
+      arguments: {'tab': 1, 'workTab': 'completed'},
+    );
+  }
 
   // ===================== UI =====================
   @override
@@ -144,7 +144,7 @@ class _InvoicePageState extends State<InvoicePage> {
       body: Column(
         children: [
           GradientHeader(
-            title: p.readOnly ? "Invoice" : "Invoice Preview",
+            title: p.photosEditable ? "Invoice" : "Invoice Preview",
             showBack: true,
           ),
           Expanded(
@@ -284,6 +284,134 @@ class _InvoicePageState extends State<InvoicePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+
+
+// Edit/Save button row
+        if (!p.readOnly)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: p.completing ? null : () {
+                  if (p.isEditingCustomerInfo) {
+                    p.saveCustomerInfo();
+                  } else {
+                    p.toggleEditCustomerInfo();
+                  }
+                },
+                icon: Icon(
+                  p.isEditingCustomerInfo ? Icons.check : Icons.edit,
+                  size: 18,
+                ),
+                label: Text(
+                  p.isEditingCustomerInfo ? "Save" : "Edit",
+                ),
+              ),
+              if (p.isEditingCustomerInfo)
+                TextButton.icon(
+                  onPressed: () => p.toggleEditCustomerInfo(),
+                  icon: const Icon(Icons.close, size: 18),
+                  label: const Text("Cancel"),
+                ),
+            ],
+          ),
+        
+        // Customer Information Fields
+        if (p.isEditingCustomerInfo) ...[
+          // Edit Mode - Text Fields
+          TextFormField(
+            controller: p.customerNameController,
+            decoration: const InputDecoration(
+              labelText: "Customer Name",
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: p.phoneController,
+            decoration: const InputDecoration(
+              labelText: "Phone",
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: p.emailController,
+            decoration: const InputDecoration(
+              labelText: "Email",
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: p.addressController,
+            decoration: const InputDecoration(
+              labelText: "Address",
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            maxLines: 2,
+          ),
+        ] else ...[
+          // View Mode - Text Display
+          Text(
+            it.customerName,
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+          ),
+          const SizedBox(height: 4),
+          Text(it.phone),
+          if (it.email.isNotEmpty) Text(it.email),
+          if (it.address.isNotEmpty) Text(it.address),
+        ],
+        
+        const Divider(height: 26),
+        
+        // Services section (unchanged)
+        ...p.services.map(
+          (s) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  s.name,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                Text("\$${s.amount.toStringAsFixed(2)}"),
+              ],
+            ),
+          ),
+        ),
+        const Divider(height: 26),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "Total Amount",
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+            Text(
+              "\$${it.total.toStringAsFixed(2)}",
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+  
+  
+
+
+
+
+
           Text(
             it.customerName,
             style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
@@ -332,7 +460,8 @@ class _InvoicePageState extends State<InvoicePage> {
 
   // ===================== PHOTOS + EMAIL =====================
   Widget _photoEmailSection(InvoiceProvider p) {
-    final disabled = p.readOnly || p.completing;
+    final Invoicedisabled = p.readOnly || p.completing;
+     final photosDisabled = p.completing || (p.readOnly && !p.photosEditable);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -346,7 +475,7 @@ class _InvoicePageState extends State<InvoicePage> {
           /// ✅ Attach Photos
           CheckboxListTile(
             value: p.attachPhotos,
-            onChanged: disabled ? null : (v) => p.toggleAttachPhotos(v ?? true),
+            onChanged: photosDisabled ? null : (v) => p.toggleAttachPhotos(v ?? false),
             title: const Text("Attach Before/After Photos"),
           ),
 
@@ -354,7 +483,7 @@ class _InvoicePageState extends State<InvoicePage> {
             _photoSection(
               title: "Before Photos",
               photos: p.beforePhotos,
-              disabled: disabled,
+              disabled: photosDisabled,
               onCamera: () => p.addFromCamera(before: true),
               onGallery: () => p.addFromGallery(before: true),
               onRemove: (path) => p.removePhoto(before: true, path: path),
@@ -363,17 +492,23 @@ class _InvoicePageState extends State<InvoicePage> {
             _photoSection(
               title: "After Photos",
               photos: p.afterPhotos,
-              disabled: disabled,
+              disabled: photosDisabled,
               onCamera: () => p.addFromCamera(before: false),
               onGallery: () => p.addFromGallery(before: false),
               onRemove: (path) => p.removePhoto(before: false, path: path),
             ),
-          ],
-
+          ], 
+           // send photos
+            if (p.attachPhotos)
+            CheckboxListTile(
+              value: p.sendPhotos,
+              onChanged: photosDisabled?null:(v) => p.toggleSendPhotos(v?? false),
+              title: const Text("Send photos"),
+            ),
           /// ✅ Send Email
           CheckboxListTile(
             value: p.sendEmail,
-            onChanged: (p.item!.email.isEmpty || disabled)
+            onChanged: (p.item!.email.isEmpty || Invoicedisabled)
                 ? null
                 : (v) => p.toggleSendEmail(v ?? false),
             title: const Text("Send Email"),
@@ -387,6 +522,7 @@ class _InvoicePageState extends State<InvoicePage> {
                 style: TextStyle(color: Colors.redAccent, fontSize: 12),
               ),
             ),
+        
         ],
       ),
     );

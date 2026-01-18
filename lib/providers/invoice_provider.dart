@@ -8,6 +8,9 @@ class InvoiceProvider extends ChangeNotifier {
   final InvoiceService _service = InvoiceService();
   void toggleAttachPhotos(bool value) {
     attachPhotos = value;
+    if (!attachPhotos) {
+    sendPhotos = false;
+  }
     notifyListeners();
   }
 
@@ -15,24 +18,45 @@ class InvoiceProvider extends ChangeNotifier {
     sendEmail = value;
     notifyListeners();
   }
-
+ void toggleSendPhotos(bool value){
+  sendPhotos= value;
+  notifyListeners();
+ }
   // =======================
   // State
   // =======================
+  bool sendPhotosOnly = false;
+  void toggleSendPhotosOnly(bool value) {
+    sendPhotosOnly = value;
+    notifyListeners();
+  }
+
+
+   bool isEditingCustomerInfo = false;
+  late TextEditingController customerNameController;
+  late TextEditingController phoneController;
+  late TextEditingController emailController;
+  late TextEditingController addressController;
+
   WorkItem? item;
   List<ServiceItem> services = [];
 
   bool loading = true;
   bool completing = false;
   bool readOnly = false;
-
+  
+  bool sendPhotos =false;
   bool attachPhotos = true;
   bool sendEmail = false;
+  bool photosEditable= false;
 
   List<String> beforePhotos = [];
   List<String> afterPhotos = [];
+  
+
 
   static const int maxPhotosPerSection = 20;
+  
 
   // =======================
   // Load
@@ -48,13 +72,29 @@ class InvoiceProvider extends ChangeNotifier {
     beforePhotos = List.from(result.beforePhotos);
     afterPhotos = List.from(result.afterPhotos);
 
+    // Initialize controllers when item loads
+    customerNameController = TextEditingController(text: item?.customerName ?? '');
+    phoneController = TextEditingController(text: item?.phone ?? '');
+    emailController = TextEditingController(text: item?.email ?? '');
+    addressController = TextEditingController(text: item?.address ?? '');
+
+
     readOnly = item?.status == 'completed';
+    photosEditable = true;
+    
+     
+
+    attachPhotos = item?.attachPhotos ?? true;
+    //sendPhotosOnly = item?.sendPhotosOnly ?? false;
     sendEmail = item?.email.trim().isNotEmpty ?? false;
     
+    if(!attachPhotos) sendPhotos =false;
 
     loading = false;
     notifyListeners();
   }
+
+
 
   // =======================
   // Helpers
@@ -68,7 +108,7 @@ class InvoiceProvider extends ChangeNotifier {
   // Photos – Camera
   // =======================
   Future<void> addFromCamera({required bool before}) async {
-    if (item == null || readOnly || completing) return;
+    if (item == null || !photosEditable || completing) return;
     if (limitReached(before)) return;
 
     final path = await _service.addPhotoFromCamera(item!.id.toString(), before);
@@ -89,11 +129,12 @@ class InvoiceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+
   // =======================
   // Photos – Gallery
   // =======================
   Future<void> addFromGallery({required bool before}) async {
-    if (item == null || readOnly || completing) return;
+    if (item == null || !photosEditable || completing) return;
 
     final remaining =
         maxPhotosPerSection -
@@ -127,7 +168,7 @@ class InvoiceProvider extends ChangeNotifier {
   // Photos – Remove
   // =======================
   Future<void> removePhoto({required bool before, required String path}) async {
-    if (readOnly || completing) return;
+    if (item== null || !photosEditable || completing) return;
 
     await _service.removePhoto(path);
 
@@ -204,53 +245,101 @@ class InvoiceProvider extends ChangeNotifier {
   // =======================
   // Complete
   // =======================
- Future<void> complete() async {
-  if (item == null || completing) return;
+  Future<void> complete() async {
+    if (item == null || completing) return;
 
-  completing = true;
-  notifyListeners();
+    completing = true;
+    notifyListeners();
 
-  try {
-    final bytes = await buildPdf(
-      item!,
-      services,
-      attachPhotos,
-      beforePhotos,
-      afterPhotos,
-    );
+    try {
+      final bytes = await buildPdf(
+        item!,
+        services,
+        attachPhotos,
+        beforePhotos,
+        afterPhotos,
 
-    // Save PDF
-    await _service.savePdf(bytes, item!);
+      );
 
-    // Optional email
-    
-    if (sendEmail) {
-  try {
-    await _service.sendEmail(
-      item!,
-      bytes,
-      beforePhotos,
-      afterPhotos,
-    );
-  } catch (e) {
-    debugPrint("⚠️ Email not available: $e");
-    // DO NOT THROW — allow completion to continue
+      // Save PDF
+     final pdfPath= await _service.savePdf(bytes, item!);
+
+      // Optional email
+
+      if (sendEmail) {
+        try {
+          await _service.sendEmail(item!, bytes,beforePhotos, afterPhotos, attachPhotos:sendPhotos,);
+        } catch (e) {
+          debugPrint("⚠️ Email not available: $e");
+          // DO NOT THROW — allow completion to continue
+        }
+      }
+
+      // Mark completed in DB
+      //final completedAt = DateTime.now();
+      await _service.markCompleted(item!.id.toString());
+
+      // Update local state ONLY
+      item = item!.copyWith(
+        status: 'completed',
+       completedAt: DateTime.now(),
+       attachPhotos: attachPhotos,
+       sendPhotosOnly: sendPhotosOnly,
+       sendEmail: sendEmail,
+       pdfPath: pdfPath,
+      );
+       readOnly= true;
+      photosEditable = true;
+    } finally {
+      completing = false;
+      notifyListeners();
+    }
   }
-}
-
-
-    // Mark completed in DB
-    await _service.markCompleted(item!.id.toString());
-
-    // Update local state ONLY
-    item = item!.copyWith(
-      status: 'completed',
-      completedAt: DateTime.now(),
-    );
-    readOnly = true;
-  } finally {
-    completing = false;
+  void toggleEditCustomerInfo(){
+    if (item == null || readOnly) return;
+    isEditingCustomerInfo = !isEditingCustomerInfo;
+    
+    if (!isEditingCustomerInfo) {
+      // Reset controllers to original values when canceling
+      customerNameController.text = item?.customerName ?? '';
+      phoneController.text = item?.phone ?? '';
+      emailController.text = item?.email ?? '';
+      addressController.text = item?.address ?? '';
+    }
+    
     notifyListeners();
   }
-}
+  Future<void> saveCustomerInfo() async{
+     if (item == null || !isEditingCustomerInfo) return;
+
+    await _service.updateCustomerInfo(
+      workItemId: item!.id.toString(),
+      customerName: customerNameController.text.trim(),
+      phone: phoneController.text.trim(),
+      email: emailController.text.trim(),
+      address: addressController.text.trim(),);
+
+       // Update local item
+    item = item!.copyWith(
+      customerName: customerNameController.text.trim(),
+      phone: phoneController.text.trim(),
+      email: emailController.text.trim(),
+      address: addressController.text.trim(),
+    );
+
+    // Update sendEmail based on email field
+    sendEmail = emailController.text.trim().isNotEmpty && sendEmail;
+
+    isEditingCustomerInfo = false;
+    notifyListeners();
+  
+  }
+   @override
+  void dispose() {
+    customerNameController.dispose();
+    phoneController.dispose();
+    emailController.dispose();
+    addressController.dispose();
+    super.dispose();
+  }
 }
