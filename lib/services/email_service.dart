@@ -6,7 +6,7 @@ import 'package:crm/models/models.dart';
 class EmailService {
   Future<void> sendInvoiceEmail({
     required WorkItem item,
-    required String pdfPath,
+    String? pdfPath,
     bool attachPhotos = true,
     List<String> beforePhotoPaths = const [],
     List<String> afterPhotoPaths = const [],
@@ -18,9 +18,13 @@ class EmailService {
 
     final attachments = <String>[];
 
-    if (pdfPath.trim().isNotEmpty && File(pdfPath).existsSync()) {
-      attachments.add(pdfPath);
-    }
+    // if (pdfPath.trim().isNotEmpty && File(pdfPath).existsSync()) {
+    //   attachments.add(pdfPath);
+    // }
+
+if (pdfPath != null && pdfPath.isNotEmpty) {
+  attachments.add(pdfPath);
+}
 
     if (attachPhotos) {
       for (final p in beforePhotoPaths) {
