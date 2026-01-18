@@ -143,6 +143,24 @@ Future<void> sendEmail(
 
 
 
+Future<void> updateCustomerInfo({
+  required String workItemId,
+  required String customerName,
+  required String phone,
+  required String email,
+  required String address,
+}) async {
+  await AppDb.instance.updateWorkItemCustomerInfo(
+    workItemId: workItemId,
+    customerName: customerName,
+    phone: phone,
+    email: email,
+    address: address,
+  );
+}
+
+
+
   Future<void> markCompleted(String id) {
     return AppDb.instance.markCompleted(id);
   }
