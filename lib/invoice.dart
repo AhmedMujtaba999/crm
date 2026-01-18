@@ -284,6 +284,134 @@ class _InvoicePageState extends State<InvoicePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+
+
+// Edit/Save button row
+        if (!p.readOnly)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: p.completing ? null : () {
+                  if (p.isEditingCustomerInfo) {
+                    p.saveCustomerInfo();
+                  } else {
+                    p.toggleEditCustomerInfo();
+                  }
+                },
+                icon: Icon(
+                  p.isEditingCustomerInfo ? Icons.check : Icons.edit,
+                  size: 18,
+                ),
+                label: Text(
+                  p.isEditingCustomerInfo ? "Save" : "Edit",
+                ),
+              ),
+              if (p.isEditingCustomerInfo)
+                TextButton.icon(
+                  onPressed: () => p.toggleEditCustomerInfo(),
+                  icon: const Icon(Icons.close, size: 18),
+                  label: const Text("Cancel"),
+                ),
+            ],
+          ),
+        
+        // Customer Information Fields
+        if (p.isEditingCustomerInfo) ...[
+          // Edit Mode - Text Fields
+          TextFormField(
+            controller: p.customerNameController,
+            decoration: const InputDecoration(
+              labelText: "Customer Name",
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: p.phoneController,
+            decoration: const InputDecoration(
+              labelText: "Phone",
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: p.emailController,
+            decoration: const InputDecoration(
+              labelText: "Email",
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: p.addressController,
+            decoration: const InputDecoration(
+              labelText: "Address",
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            maxLines: 2,
+          ),
+        ] else ...[
+          // View Mode - Text Display
+          Text(
+            it.customerName,
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+          ),
+          const SizedBox(height: 4),
+          Text(it.phone),
+          if (it.email.isNotEmpty) Text(it.email),
+          if (it.address.isNotEmpty) Text(it.address),
+        ],
+        
+        const Divider(height: 26),
+        
+        // Services section (unchanged)
+        ...p.services.map(
+          (s) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  s.name,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                Text("\$${s.amount.toStringAsFixed(2)}"),
+              ],
+            ),
+          ),
+        ),
+        const Divider(height: 26),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "Total Amount",
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+            Text(
+              "\$${it.total.toStringAsFixed(2)}",
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+  
+  
+
+
+
+
+
           Text(
             it.customerName,
             style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
