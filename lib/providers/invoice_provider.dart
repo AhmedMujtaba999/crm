@@ -31,6 +31,13 @@ class InvoiceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+
+   bool isEditingCustomerInfo = false;
+  late TextEditingController customerNameController;
+  late TextEditingController phoneController;
+  late TextEditingController emailController;
+  late TextEditingController addressController;
+
   WorkItem? item;
   List<ServiceItem> services = [];
 
@@ -49,6 +56,7 @@ class InvoiceProvider extends ChangeNotifier {
 
 
   static const int maxPhotosPerSection = 20;
+  
 
   // =======================
   // Load
@@ -64,6 +72,13 @@ class InvoiceProvider extends ChangeNotifier {
     beforePhotos = List.from(result.beforePhotos);
     afterPhotos = List.from(result.afterPhotos);
 
+    // Initialize controllers when item loads
+    customerNameController = TextEditingController(text: item?.customerName ?? '');
+    phoneController = TextEditingController(text: item?.phone ?? '');
+    emailController = TextEditingController(text: item?.email ?? '');
+    addressController = TextEditingController(text: item?.address ?? '');
+
+
     readOnly = item?.status == 'completed';
     photosEditable = true;
     
@@ -78,6 +93,8 @@ class InvoiceProvider extends ChangeNotifier {
     loading = false;
     notifyListeners();
   }
+
+
 
   // =======================
   // Helpers
@@ -111,6 +128,7 @@ class InvoiceProvider extends ChangeNotifier {
 
     notifyListeners();
   }
+
 
   // =======================
   // Photos – Gallery
@@ -276,5 +294,52 @@ class InvoiceProvider extends ChangeNotifier {
       completing = false;
       notifyListeners();
     }
+  }
+  void toggleEditCustomerInfo(){
+    if (item == null || readOnly) return;
+    isEditingCustomerInfo = !isEditingCustomerInfo;
+    
+    if (!isEditingCustomerInfo) {
+      // Reset controllers to original values when canceling
+      customerNameController.text = item?.customerName ?? '';
+      phoneController.text = item?.phone ?? '';
+      emailController.text = item?.email ?? '';
+      addressController.text = item?.address ?? '';
+    }
+    
+    notifyListeners();
+  }
+  Future<void> saveCustomerInfo() async{
+     if (item == null || !isEditingCustomerInfo) return;
+
+    await _service.updateCustomerInfo(
+      workItemId: item!.id.toString(),
+      customerName: customerNameController.text.trim(),
+      phone: phoneController.text.trim(),
+      email: emailController.text.trim(),
+      address: addressController.text.trim(),);
+
+       // Update local item
+    item = item!.copyWith(
+      customerName: customerNameController.text.trim(),
+      phone: phoneController.text.trim(),
+      email: emailController.text.trim(),
+      address: addressController.text.trim(),
+    );
+
+    // Update sendEmail based on email field
+    sendEmail = emailController.text.trim().isNotEmpty && sendEmail;
+
+    isEditingCustomerInfo = false;
+    notifyListeners();
+  
+  }
+   @override
+  void dispose() {
+    customerNameController.dispose();
+    phoneController.dispose();
+    emailController.dispose();
+    addressController.dispose();
+    super.dispose();
   }
 }
