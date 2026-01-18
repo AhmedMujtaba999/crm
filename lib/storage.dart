@@ -26,7 +26,9 @@ class AppDb {
         if (oldV < 3) {
           // work_items.completedAt
           try {
-            await db.execute('ALTER TABLE work_items ADD COLUMN completedAt TEXT');
+            await db.execute(
+              'ALTER TABLE work_items ADD COLUMN completedAt TEXT',
+            );
           } catch (_) {}
 
           // tasks.scheduledAt (in case DB was created before you added it)
@@ -52,8 +54,12 @@ class AppDb {
         notes TEXT,
         total REAL,
         beforePhotoPath TEXT,
-        afterPhotoPath TEXT
-      )
+        afterPhotoPath TEXT,
+        attachPhotos INTEGER DEFAULT 0,
+        sendPhotosOnly INTEGER DEFAULT 0,
+        sendEmail INTEGER DEFAULT 0,
+        pdfPath TEXT
+            )
     ''');
 
     await db.execute('''
@@ -80,7 +86,10 @@ class AppDb {
   }
 
   // ---------------- Customer exists check ----------------
-  Future<bool> customerExists({required String phone, required String email}) async {
+  Future<bool> customerExists({
+    required String phone,
+    required String email,
+  }) async {
     final rows = await db.query(
       'work_items',
       columns: ['id'],
@@ -91,11 +100,15 @@ class AppDb {
     return rows.isNotEmpty;
   }
 
-  Future<String?> findLatestActiveWorkItemId({required String phone, required String email}) async {
+  Future<String?> findLatestActiveWorkItemId({
+    required String phone,
+    required String email,
+  }) async {
     final rows = await db.query(
       'work_items',
       columns: ['id'],
-      where: 'status = ? AND ((phone = ? AND phone != "") OR (email = ? AND email != ""))',
+      where:
+          'status = ? AND ((phone = ? AND phone != "") OR (email = ? AND email != ""))',
       whereArgs: ['active', phone, email],
       orderBy: 'createdAt DESC',
       limit: 1,
@@ -105,7 +118,10 @@ class AppDb {
     return rows.first['id'] as String?;
   }
 
-  Future<WorkItem?> findLatestWorkItemByCustomer({required String phone, required String email}) async {
+  Future<WorkItem?> findLatestWorkItemByCustomer({
+    required String phone,
+    required String email,
+  }) async {
     final rows = await db.query(
       'work_items',
       where: '((phone = ? AND phone != "") OR (email = ? AND email != ""))',
@@ -144,13 +160,22 @@ class AppDb {
   }
 
   Future<WorkItem?> getWorkItem(String id) async {
-    final rows = await db.query('work_items', where: 'id = ?', whereArgs: [id], limit: 1);
+    final rows = await db.query(
+      'work_items',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
     if (rows.isEmpty) return null;
     return WorkItem.fromMap(rows.first);
   }
 
   Future<List<ServiceItem>> listServices(String workItemId) async {
-    final rows = await db.query('services', where: 'workItemId = ?', whereArgs: [workItemId]);
+    final rows = await db.query(
+      'services',
+      where: 'workItemId = ?',
+      whereArgs: [workItemId],
+    );
     return rows.map(ServiceItem.fromMap).toList();
   }
 
@@ -159,7 +184,8 @@ class AppDb {
       'work_items',
       {
         'status': 'completed',
-        'completedAt': DateTime.now().toIso8601String(), // ✅ save completed date
+        'completedAt': DateTime.now()
+            .toIso8601String(), // ✅ save completed date
       },
       where: 'id = ?',
       whereArgs: [workItemId],
@@ -175,12 +201,21 @@ class AppDb {
     if (beforePath != null) data['beforePhotoPath'] = beforePath;
     if (afterPath != null) data['afterPhotoPath'] = afterPath;
 
-    await db.update('work_items', data, where: 'id = ?', whereArgs: [workItemId]);
+    await db.update(
+      'work_items',
+      data,
+      where: 'id = ?',
+      whereArgs: [workItemId],
+    );
   }
 
   Future<void> deleteWorkItem(String workItemId) async {
     // delete services first
-    await db.delete('services', where: 'workItemId = ?', whereArgs: [workItemId]);
+    await db.delete(
+      'services',
+      where: 'workItemId = ?',
+      whereArgs: [workItemId],
+    );
     // delete work item
     await db.delete('work_items', where: 'id = ?', whereArgs: [workItemId]);
   }
@@ -188,7 +223,11 @@ class AppDb {
   // ---------------- Tasks ----------------
   Future<void> seedTasksIfEmpty() async {
     // keep your existing implementation (unchanged)
-    final c = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM tasks')) ?? 0;
+    final c =
+        Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM tasks'),
+        ) ??
+        0;
     if (c > 0) return;
 
     final now = DateTime.now();
@@ -223,7 +262,8 @@ class AppDb {
     final rows = await db.query('tasks', orderBy: 'createdAt DESC');
     var list = rows.map(TaskItem.fromMap).toList();
 
-    bool isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+    bool isSameDay(DateTime a, DateTime b) =>
+        a.year == b.year && a.month == b.month && a.day == b.day;
 
     if (forDate != null) {
       final fd = DateTime(forDate.year, forDate.month, forDate.day);
