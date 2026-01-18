@@ -79,60 +79,60 @@ class _InvoicePageState extends State<InvoicePage> {
   }
 
   // ===================== COMPLETE =====================
- Future<void> _completeWorkItem() async {
-  final p = context.read<InvoiceProvider>();
+  Future<void> _completeWorkItem() async {
+    final p = context.read<InvoiceProvider>();
 
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: const Text("Complete work item?"),
-      content: Text(
-        p.sendEmail
-            ? "This will mark the work item as completed and send the invoice email."
-            : "This will mark the work item as completed.",
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Complete work item?"),
+        content: Text(
+          p.sendEmail
+              ? "This will mark the work item as completed and send the invoice email."
+              : "This will mark the work item as completed.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Complete"),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text("Cancel"),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: const Text("Complete"),
-        ),
-      ],
-    ),
-  );
+    );
 
-  if (ok != true) return;
+    if (ok != true) return;
 
-  /// 1️⃣ COMPLETE (NO NAVIGATION YET)
-  await p.complete();
+    /// 1️⃣ COMPLETE (NO NAVIGATION YET)
+    await p.complete();
 
-  if (!mounted) return;
+    if (!mounted) return;
 
-  /// 2️⃣ SHOW GREEN POPUP (BLOCKING)
-  await _showCompletedPrompt();
+    /// 2️⃣ SHOW GREEN POPUP (BLOCKING)
+    await _showCompletedPrompt();
 
-  if (!mounted) return;
+    if (!mounted) return;
 
-  /// 3️⃣ REFRESH COMPLETED LIST
-  await context.read<WorkItemsProvider>().load(
-        active: false,
-        byDate: false,
-        selectedDate: DateTime.now(),
-      );
+    /// 3️⃣ REFRESH COMPLETED LIST
+    await context.read<WorkItemsProvider>().load(
+      active: false,
+      byDate: false,
+      selectedDate: DateTime.now(),
+    );
 
-  if (!mounted) return;
+    if (!mounted) return;
 
-  /// 4️⃣ NOW NAVIGATE
-  Navigator.pushNamedAndRemoveUntil(
-    context,
-    '/home',
-    (_) => false,
-    arguments: {'tab': 1, 'workTab': 'completed'},
-  );
-}
+    /// 4️⃣ NOW NAVIGATE
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      '/home',
+      (_) => false,
+      arguments: {'tab': 1, 'workTab': 'completed'},
+    );
+  }
 
   // ===================== UI =====================
   @override
@@ -144,7 +144,7 @@ class _InvoicePageState extends State<InvoicePage> {
       body: Column(
         children: [
           GradientHeader(
-            title: p.readOnly ? "Invoice" : "Invoice Preview",
+            title: p.photosEditable ? "Invoice" : "Invoice Preview",
             showBack: true,
           ),
           Expanded(
@@ -332,7 +332,8 @@ class _InvoicePageState extends State<InvoicePage> {
 
   // ===================== PHOTOS + EMAIL =====================
   Widget _photoEmailSection(InvoiceProvider p) {
-    final disabled = p.readOnly || p.completing;
+    final Invoicedisabled = p.readOnly || p.completing;
+     final photosDisabled = p.completing || (p.readOnly && !p.photosEditable);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -346,7 +347,7 @@ class _InvoicePageState extends State<InvoicePage> {
           /// ✅ Attach Photos
           CheckboxListTile(
             value: p.attachPhotos,
-            onChanged: disabled ? null : (v) => p.toggleAttachPhotos(v ?? true),
+            onChanged: photosDisabled ? null : (v) => p.toggleAttachPhotos(v ?? false),
             title: const Text("Attach Before/After Photos"),
           ),
 
@@ -354,7 +355,7 @@ class _InvoicePageState extends State<InvoicePage> {
             _photoSection(
               title: "Before Photos",
               photos: p.beforePhotos,
-              disabled: disabled,
+              disabled: photosDisabled,
               onCamera: () => p.addFromCamera(before: true),
               onGallery: () => p.addFromGallery(before: true),
               onRemove: (path) => p.removePhoto(before: true, path: path),
@@ -363,17 +364,23 @@ class _InvoicePageState extends State<InvoicePage> {
             _photoSection(
               title: "After Photos",
               photos: p.afterPhotos,
-              disabled: disabled,
+              disabled: photosDisabled,
               onCamera: () => p.addFromCamera(before: false),
               onGallery: () => p.addFromGallery(before: false),
               onRemove: (path) => p.removePhoto(before: false, path: path),
             ),
-          ],
-
+          ], 
+           // send photos
+            if (p.attachPhotos)
+            CheckboxListTile(
+              value: p.sendPhotos,
+              onChanged: photosDisabled?null:(v) => p.toggleSendPhotos(v?? false),
+              title: const Text("Send photos"),
+            ),
           /// ✅ Send Email
           CheckboxListTile(
             value: p.sendEmail,
-            onChanged: (p.item!.email.isEmpty || disabled)
+            onChanged: (p.item!.email.isEmpty || Invoicedisabled)
                 ? null
                 : (v) => p.toggleSendEmail(v ?? false),
             title: const Text("Send Email"),
@@ -387,6 +394,7 @@ class _InvoicePageState extends State<InvoicePage> {
                 style: TextStyle(color: Colors.redAccent, fontSize: 12),
               ),
             ),
+        
         ],
       ),
     );
