@@ -10,6 +10,7 @@ class TaskCreateService {
     required String address,
     required String title,
     required DateTime scheduledAt,
+    required List<TaskServiceItem> services,
   }) async {
     final id = const Uuid().v4();
 
@@ -22,8 +23,9 @@ class TaskCreateService {
       address: address,
       createdAt: DateTime.now(), // real creation time
       scheduledAt: scheduledAt, // calendar date
+      services: const [],
     );
 
-    await AppDb.instance.insertTask(task);
+    await AppDb.instance.insertTask(task, services);
   }
 }
