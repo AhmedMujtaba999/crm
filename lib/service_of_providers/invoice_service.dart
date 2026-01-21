@@ -10,14 +10,18 @@ import '../storage.dart';
 import 'package:crm/services/invoice_pdf_service.dart';
 import 'package:crm/services/email_service.dart';
 
-
 class InvoiceLoadResult {
   final WorkItem item;
   final List<ServiceItem> services;
   final List<String> beforePhotos;
   final List<String> afterPhotos;
 
-  InvoiceLoadResult(this.item, this.services, this.beforePhotos, this.afterPhotos);
+  InvoiceLoadResult(
+    this.item,
+    this.services,
+    this.beforePhotos,
+    this.afterPhotos,
+  );
 }
 
 class InvoiceService {
@@ -27,7 +31,6 @@ class InvoiceService {
 
   // ---------------- Load ----------------
   Future<InvoiceLoadResult> loadInvoice(String id) async {
-    
     final item = await AppDb.instance.getWorkItem(id);
     final services = await AppDb.instance.listServices(id);
 
@@ -39,7 +42,10 @@ class InvoiceService {
 
   // ---------------- Photos ----------------
   Future<String?> addPhotoFromCamera(String id, bool before) async {
-    final x = await _picker.pickImage(source: ImageSource.camera, imageQuality: 75);
+    final x = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 75,
+    );
     if (x == null) return null;
     return _storePickedFile(id, before, x);
   }
@@ -100,66 +106,59 @@ class InvoiceService {
   Future<void> sharePdf(Uint8List bytes, WorkItem item) {
     return Printing.sharePdf(bytes: bytes, filename: 'invoice_${item.id}.pdf');
   }
-  
 
+  Future<String> savePdf(Uint8List bytes, WorkItem item) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final invoicesDir = Directory('${dir.path}/invoices');
 
-Future<String> savePdf(Uint8List bytes, WorkItem item) async {
-  final dir = await getApplicationDocumentsDirectory();
-  final invoicesDir = Directory('${dir.path}/invoices');
+    if (!await invoicesDir.exists()) {
+      await invoicesDir.create(recursive: true);
+    }
 
-  if (!await invoicesDir.exists()) {
-    await invoicesDir.create(recursive: true);
+    final file = File('${invoicesDir.path}/invoice_${item.id}.pdf');
+    await file.writeAsBytes(bytes, flush: true);
+
+    return file.path;
   }
 
-  final file = File('${invoicesDir.path}/invoice_${item.id}.pdf');
-  await file.writeAsBytes(bytes, flush: true);
+  // ---------------- Email ----------------
+  Future<void> sendEmail(
+    WorkItem item,
+    Uint8List pdfBytes,
+    List<String> before,
+    List<String> after, {
+    required bool attachPhotos, // ✅ CONTROLLED BY UI
+  }) async {
+    // ✅ Use temp directory so email apps can read the file reliably
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/invoice_${item.id}.pdf');
 
-  return file.path;
-}
+    await file.writeAsBytes(pdfBytes, flush: true);
 
+    return _emailService.sendInvoiceEmail(
+      item: item,
+      pdfPath: file.path, // ✅ ALWAYS PDF
+      attachPhotos: attachPhotos, // ✅ photos optional
+      beforePhotoPaths: before,
+      afterPhotoPaths: after,
+    );
+  }
 
-// ---------------- Email ----------------
-Future<void> sendEmail(
-  WorkItem item,
-  Uint8List pdfBytes,
-  List<String> before,
-  List<String> after, {
-  required bool attachPhotos, // ✅ CONTROLLED BY UI
-}) async {
-  // ✅ Use temp directory so email apps can read the file reliably
-  final tempDir = await getTemporaryDirectory();
-  final file = File('${tempDir.path}/invoice_${item.id}.pdf');
-
-  await file.writeAsBytes(pdfBytes, flush: true);
-
-  return _emailService.sendInvoiceEmail(
-    item: item,
-    pdfPath: file.path,        // ✅ ALWAYS PDF
-    attachPhotos: attachPhotos, // ✅ photos optional
-    beforePhotoPaths: before,
-    afterPhotoPaths: after,
-  );
-}
-
-
-
-Future<void> updateCustomerInfo({
-  required String workItemId,
-  required String customerName,
-  required String phone,
-  required String email,
-  required String address,
-}) async {
-  await AppDb.instance.updateWorkItemCustomerInfo(
-    workItemId: workItemId,
-    customerName: customerName,
-    phone: phone,
-    email: email,
-    address: address,
-  );
-}
-
-
+  Future<void> updateCustomerInfo({
+    required String workItemId,
+    required String customerName,
+    required String phone,
+    required String email,
+    required String address,
+  }) async {
+    await AppDb.instance.updateWorkItemCustomerInfo(
+      workItemId: workItemId,
+      customerName: customerName,
+      phone: phone,
+      email: email,
+      address: address,
+    );
+  }
 
   Future<void> markCompleted(String id) {
     return AppDb.instance.markCompleted(id);
@@ -185,7 +184,9 @@ Future<void> updateCustomerInfo({
     final dir = Directory('${base.path}/photos/${before ? "before" : "after"}');
     if (!await dir.exists()) await dir.create(recursive: true);
 
-    final out = File('${dir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg');
+    final out = File(
+      '${dir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg',
+    );
     await out.writeAsBytes(await x.readAsBytes(), flush: true);
     return out.path;
   }
@@ -201,7 +202,11 @@ Future<void> updateCustomerInfo({
     return List<String>.from(jsonDecode(await f.readAsString()));
   }
 
-  Future<void> _writeManifest(String id, bool before, List<String> paths) async {
+  Future<void> _writeManifest(
+    String id,
+    bool before,
+    List<String> paths,
+  ) async {
     final f = await _manifest(id, before);
     await f.writeAsString(jsonEncode(paths), flush: true);
   }
