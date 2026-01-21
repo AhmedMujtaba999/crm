@@ -211,6 +211,7 @@ class _TasksPageState extends State<TasksPage> {
                 const SizedBox(height: 4),
                 Text(t.phone, style: const TextStyle(color: Colors.grey)),
                 const SizedBox(height: 10),
+
                 Text(
                   "Scheduled $sched",
                   style: const TextStyle(color: Colors.grey),
@@ -271,9 +272,45 @@ class _TasksPageState extends State<TasksPage> {
                   context: context,
                   builder: (_) => AlertDialog(
                     title: Text(task.title),
-                    content: Text(
-                      "${task.customerName}\n${task.phone}\n${task.email}\n${task.address}"
-                      "\n\nScheduled: ${DateFormat('EEE, MMM d, y').format(task.scheduledAt)}",
+                    content: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(task.customerName),
+                          Text(task.phone),
+                          if (task.email.isNotEmpty) Text(task.email),
+                          if (task.address.isNotEmpty) Text(task.address),
+
+                          const SizedBox(height: 12),
+
+                          Text(
+                            "Scheduled: ${DateFormat('EEE, MMM d, y').format(task.scheduledAt)}",
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          /// ✅ SERVICES SECTION
+                          if (task.services.isNotEmpty) ...[
+                            const Text(
+                              "Services",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 6),
+                            ...task.services.map(
+                              (s) => Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(s.name),
+                                  Text("\$${s.amount.toStringAsFixed(2)}"),
+                                ],
+                              ),
+                            ),
+                          ] else
+                            const Text("No services added"),
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -309,7 +346,9 @@ class _TasksPageState extends State<TasksPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => CreateWorkItemPage(prefillTask: task),
+                    builder: (_) => CreateWorkItemPage(
+                      prefillTask: task,
+                    ),
                   ),
                 );
               },
