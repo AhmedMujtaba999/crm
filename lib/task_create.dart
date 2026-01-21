@@ -14,6 +14,9 @@ class CreateTaskPage extends StatefulWidget {
 }
 
 class _CreateTaskPageState extends State<CreateTaskPage> {
+  String? selectedService;
+  final amountC = TextEditingController();
+
   final _formKey = GlobalKey<FormState>();
 
   final customerNameC = TextEditingController();
@@ -58,9 +61,9 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
 
     if (!mounted || !success) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Task created successfully")),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Task created successfully")));
     Navigator.pop(context, true);
   }
 
@@ -81,7 +84,6 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
                 key: _formKey,
                 child: Column(
                   children: [
-
                     /// ===== TASK DETAILS =====
                     _SectionCard(
                       title: "Task Details",
@@ -94,13 +96,192 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
                             onTap: () => _pickDate(p),
                           ),
                           const SizedBox(height: 14),
+                          CardBox(
+                            title: " Select Services",
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        height: 52,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(0xFFE5E7EB),
+                                          ),
+                                          color: Colors.white,
+                                        ),
+                                        child: DropdownButtonHideUnderline(
+                                          child: DropdownButton<String>(
+                                            value: selectedService,
+                                            isExpanded: true,
+                                            items: context
+                                                .watch<TaskCreateProvider>()
+                                                .servicesCatalog
+                                                .map(
+                                                  (s) => DropdownMenuItem(
+                                                    value: s,
+                                                    child: Text(s),
+                                                  ),
+                                                )
+                                                .toList(),
+                                            onChanged: (v) {
+                                              setState(
+                                                () => selectedService = v,
+                                              );
+                                            },
+                                            hint: const Text("Select Service"),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    SizedBox(
+                                      width: 95,
+                                      child: TextField(
+                                        controller: amountC,
+                                        keyboardType:
+                                            const TextInputType.numberWithOptions(
+                                              decimal: true,
+                                            ),
+                                        decoration: InputDecoration(
+                                          hintText: "Amount",
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    SizedBox(
+                                      width: 52,
+                                      height: 52,
+                                      child: ElevatedButton(
+                                        onPressed: () {
+                                          // VALIDATIONS
+                                          if (selectedService == null ||
+                                              amountC.text.isEmpty) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  "Select service and enter amount",
+                                                ),
+                                              ),
+                                            );
+                                            return;
+                                          }
+                                          context
+                                              .read<TaskCreateProvider>()
+                                              .addService(
+                                                selectedService!,
 
-                          _DropdownField(
-                            value: p.selectedService,
-                            items: p.services,
-                            onChanged: p.setService,
-                            hint: "Select Service",
+                                                double.parse(amountC.text),
+                                              );
+                                          setState(() {
+                                            selectedService =
+                                                null; // ✅ RESET dropdown
+                                          });
+                                          amountC.clear();
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(
+                                            0xFF2F5BFF,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.add,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                if (context
+                                    .watch<TaskCreateProvider>()
+                                    .services
+                                    .isNotEmpty) ...[
+                                  ...context
+                                      .watch<TaskCreateProvider>()
+                                      .services
+                                      .map(
+                                        (s) => Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 10,
+                                          ),
+                                          child: ServiceRow(
+                                            name: s.name,
+                                            amount: s.amount,
+                                            onDelete: () => context
+                                                .read<TaskCreateProvider>()
+                                                .removeService(s),
+                                          ),
+                                        ),
+                                      ),
+                                  const Divider(),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        "Total Amount",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                      Text(
+                                        "\$${context.watch<TaskCreateProvider>().total.toStringAsFixed(2)}",
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          color: Color(0xFF2F5BFF),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
+
+                          // _DropdownField(
+                          //   value: null, // ✅ IMPORTANT
+                          //   items: p.services,
+                          //   onChanged: (value) {
+                          //     if (value != null) {
+                          //       p.addService(value);
+                          //     }
+                          //   },
+                          //   hint: "Select Service",
+                          // ),
+                          // Wrap(
+                          //   spacing: 8,
+                          //   children: p.selectedServices.map((service) {
+                          //     return Chip(
+                          //       label: Text(service),
+                          //       deleteIcon: const Icon(Icons.close),
+                          //       onDeleted: () => p.removeService(service),
+                          //     );
+                          //   }).toList(),
+                          // ),
                           const SizedBox(height: 14),
 
                           _TextField(
@@ -124,10 +305,9 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
                             controller: customerNameC,
                             hint: "Customer Name",
                             icon: Icons.person,
-                            validator: (v) =>
-                                v == null || v.trim().isEmpty
-                                    ? "Customer name is required"
-                                    : null,
+                            validator: (v) => v == null || v.trim().isEmpty
+                                ? "Customer name is required"
+                                : null,
                           ),
                           const SizedBox(height: 12),
 
@@ -136,10 +316,9 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
                             hint: "Phone Number",
                             icon: Icons.phone,
                             keyboardType: TextInputType.phone,
-                            validator: (v) =>
-                                v == null || v.trim().isEmpty
-                                    ? "Phone is required"
-                                    : null,
+                            validator: (v) => v == null || v.trim().isEmpty
+                                ? "Phone is required"
+                                : null,
                           ),
                           const SizedBox(height: 12),
 
@@ -204,10 +383,7 @@ class _SectionCard extends StatelessWidget {
             children: [
               Icon(icon, color: AppColors.primary),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.w900),
-              ),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
             ],
           ),
           const SizedBox(height: 14),
@@ -292,9 +468,9 @@ class _TextField extends StatelessWidget {
 }
 
 class _DropdownField extends StatelessWidget {
-  final String value;
+  final String? value;
   final List<String> items;
-  final ValueChanged<String> onChanged;
+  final ValueChanged<String?> onChanged;
   final String hint;
 
   const _DropdownField({
@@ -312,7 +488,7 @@ class _DropdownField extends StatelessWidget {
       items: items
           .map((s) => DropdownMenuItem(value: s, child: Text(s)))
           .toList(),
-      onChanged: (v) => onChanged(v!),
+      onChanged: onChanged, // ✅ SAFE
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon: const Icon(Icons.build_outlined),
