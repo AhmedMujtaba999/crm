@@ -1,6 +1,7 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:crm/models/models.dart';
+import 'package:uuid/uuid.dart';
 
 class AppDb {
   AppDb._();
@@ -17,7 +18,7 @@ class AppDb {
     final path = join(await getDatabasesPath(), 'poolpro_crm.db');
     _db = await openDatabase(
       path,
-      version: 3, // ✅ bump version so migration runs
+      version: 4, // ✅ bump version so migration runs
       onCreate: (db, _) async {
         await _createTables(db);
       },
@@ -35,6 +36,18 @@ class AppDb {
           try {
             await db.execute('ALTER TABLE tasks ADD COLUMN scheduledAt TEXT');
           } catch (_) {}
+        }
+
+        if (oldV < 4) {
+          // task_services table to store services per task
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS task_services (
+              id TEXT PRIMARY KEY,
+              taskId TEXT,
+              name TEXT,
+              amount REAL
+            )
+          ''');
         }
       },
     );
@@ -81,6 +94,15 @@ class AppDb {
         address TEXT,
         createdAt TEXT,
         scheduledAt TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE task_services (
+        id TEXT PRIMARY KEY,
+        taskId TEXT,
+        name TEXT,
+        amount REAL
       )
     ''');
   }
@@ -222,7 +244,6 @@ class AppDb {
 
   // ---------------- Tasks ----------------
   Future<void> seedTasksIfEmpty() async {
-    // keep your existing implementation (unchanged)
     final c =
         Sqflite.firstIntValue(
           await db.rawQuery('SELECT COUNT(*) FROM tasks'),
@@ -241,6 +262,10 @@ class AppDb {
       address: '123 Main Street, Dubai',
       createdAt: DateTime(2024, 1, 15),
       scheduledAt: DateTime(now.year, now.month, now.day),
+      services: const [
+        TaskServiceItem(name: 'Water Change', amount: 150.0),
+        TaskServiceItem(name: 'Chemical Treatment', amount: 75.0),
+      ],
     );
 
     final t2 = TaskItem(
@@ -252,15 +277,29 @@ class AppDb {
       address: '456 Beach Road, Abu Dhabi',
       createdAt: DateTime(2024, 1, 16),
       scheduledAt: DateTime(2024, 1, 16),
+      services: const [],
     );
 
-    await db.insert('tasks', t1.toMap());
-    await db.insert('tasks', t2.toMap());
+    await insertTask(t1, t1.services);
+    await insertTask(t2, t2.services);
+  }
+
+  Future<List<TaskServiceItem>> listTaskServices(String taskId) async {
+    final rows = await db.query(
+      'task_services',
+      where: 'taskId = ?',
+      whereArgs: [taskId],
+    );
+    return rows.map(TaskServiceItem.fromMap).toList();
   }
 
   Future<List<TaskItem>> listTasks({DateTime? forDate}) async {
     final rows = await db.query('tasks', orderBy: 'createdAt DESC');
-    var list = rows.map(TaskItem.fromMap).toList();
+    var list = <TaskItem>[];
+    for (final row in rows) {
+      final services = await listTaskServices((row['id'] ?? '').toString());
+      list.add(TaskItem.fromMap(row, services: services));
+    }
 
     bool isSameDay(DateTime a, DateTime b) =>
         a.year == b.year && a.month == b.month && a.day == b.day;
@@ -285,32 +324,41 @@ class AppDb {
     return list;
   }
 
-  Future<void> insertTask(TaskItem task) async {
-    await db.insert('tasks', task.toMap());
+  Future<void> insertTask(TaskItem task, List<TaskServiceItem> services) async {
+    final d = db;
+    await d.insert('tasks', task.toMap());
+    for (final s in services) {
+      final svc = s.copyWith(
+        id: s.id.isEmpty ? const Uuid().v4() : s.id,
+        taskId: s.taskId.isEmpty ? task.id : s.taskId,
+      );
+      await d.insert('task_services', svc.toMap());
+    }
   }
 
   Future<void> deleteTask(String id) async {
+    await db.delete('task_services', where: 'taskId = ?', whereArgs: [id]);
     await db.delete('tasks', where: 'id = ?', whereArgs: [id]);
   }
   // ... existing code ...
 
-Future<void> updateWorkItemCustomerInfo({
-  required String workItemId,
-  required String customerName,
-  required String phone,
-  required String email,
-  required String address,
-}) async {
-  await db.update(
-    'work_items',
-    {
-      'customerName': customerName,
-      'phone': phone,
-      'email': email,
-      'address': address,
-    },
-    where: 'id = ?',
-    whereArgs: [workItemId],
-  );
-}
+  Future<void> updateWorkItemCustomerInfo({
+    required String workItemId,
+    required String customerName,
+    required String phone,
+    required String email,
+    required String address,
+  }) async {
+    await db.update(
+      'work_items',
+      {
+        'customerName': customerName,
+        'phone': phone,
+        'email': email,
+        'address': address,
+      },
+      where: 'id = ?',
+      whereArgs: [workItemId],
+    );
+  }
 }
