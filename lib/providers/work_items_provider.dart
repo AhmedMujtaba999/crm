@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:crm/models/models.dart';
 import 'package:crm/service_of_providers/work_items_services.dart';
-
-
 class WorkItemsProvider extends ChangeNotifier {
   final _service = WorkItemsService();
 
   bool isLoading = false;
   List<WorkItem> _items = [];
-
   List<WorkItem> get items => _items;
 
   Future<void> load({
