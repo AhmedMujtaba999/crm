@@ -206,7 +206,17 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
   void initState() {
     super.initState();
     Future.microtask(() {
-      context.read<CreateWorkItemProvider>().resetConfirmedCreate();
+      final p = context.read<CreateWorkItemProvider>();
+      p.resetConfirmedCreate();
+
+      // If we came from "Activate Task", prefill services too.
+      final t = widget.prefillTask;
+      if (t != null && t.services.isNotEmpty) {
+        p.services.clear();
+        for (final s in t.services) {
+          p.addService(s.name, s.amount);
+        }
+      }
     });
     final t = widget.prefillTask;
     if (t != null) {
