@@ -33,10 +33,14 @@ class InvoiceProvider extends ChangeNotifier {
 
 
    bool isEditingCustomerInfo = false;
-  late TextEditingController customerNameController;
-  late TextEditingController phoneController;
-  late TextEditingController emailController;
-  late TextEditingController addressController;
+ final TextEditingController customerNameController =
+    TextEditingController();
+final TextEditingController phoneController =
+    TextEditingController();
+final TextEditingController emailController =
+    TextEditingController();
+final TextEditingController addressController =
+    TextEditingController();
 
   WorkItem? item;
   List<ServiceItem> services = [];
@@ -73,10 +77,10 @@ class InvoiceProvider extends ChangeNotifier {
     afterPhotos = List.from(result.afterPhotos);
 
     // Initialize controllers when item loads
-    customerNameController = TextEditingController(text: item?.customerName ?? '');
-    phoneController = TextEditingController(text: item?.phone ?? '');
-    emailController = TextEditingController(text: item?.email ?? '');
-    addressController = TextEditingController(text: item?.address ?? '');
+   customerNameController.text = item?.customerName ?? '';
+phoneController.text = item?.phone ?? '';
+emailController.text = item?.email ?? '';
+addressController.text = item?.address ?? '';
 
 
     readOnly = item?.status == 'completed';
