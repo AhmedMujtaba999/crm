@@ -177,8 +177,10 @@ class _LoginPageState extends State<LoginPage>
 
                               if (!ok && mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text("Invalid credentials"),
+                                   SnackBar(
+                                    content: Text(p.errorMessage ?? 'Login failed. Please try again.'),
+                                  backgroundColor: Colors.red,
+                                  duration: const Duration(seconds: 3),
                                   ),
                                 );
                               }

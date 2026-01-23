@@ -35,10 +35,7 @@ class AppRoutes {
 
           return MaterialPageRoute(
             settings: settings,
-            builder: (_) => ChangeNotifierProvider(
-              create: (_) => HomeShellProvider(),
-              child: HomeShell(initialTab: tab, workTab: workTab),
-            ),
+            builder: (_) => HomeShell(initialTab: tab, workTab: workTab),
           );
         }
 
@@ -88,7 +85,7 @@ class AppRoutes {
       //--------------Auth-----------------
       case '/auth':
         return MaterialPageRoute(
-          builder: (_) => ChangeNotifierProvider( 
+          builder: (_) => ChangeNotifierProvider(
             create: (_) => AuthProvider(),
             child: AuthGate(),
           ),

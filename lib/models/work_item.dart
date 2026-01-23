@@ -1,6 +1,6 @@
 class WorkItem {
   final String id;
-  final String status; // 'active' | 'completed'
+  final String status; // active | completed
   final DateTime createdAt;
   final DateTime? completedAt;
 
@@ -14,7 +14,6 @@ class WorkItem {
   final String? beforePhotoPath;
   final String? afterPhotoPath;
 
-  // ✅ NEW (frozen snapshot fields)
   final bool attachPhotos;
   final bool sendPhotosOnly;
   final bool sendEmail;
@@ -33,56 +32,52 @@ class WorkItem {
     required this.total,
     this.beforePhotoPath,
     this.afterPhotoPath,
-
-    // NEW
     this.attachPhotos = false,
     this.sendPhotosOnly = false,
     this.sendEmail = false,
     this.pdfPath,
   });
+WorkItem copyWith({
+  String? id,
+  String? status,
+  DateTime? createdAt,
+  DateTime? completedAt,
+  String? customerName,
+  String? phone,
+  String? email,
+  String? address,
+  String? notes,
+  double? total,
+  String? beforePhotoPath,
+  String? afterPhotoPath,
+  bool? attachPhotos,
+  bool? sendPhotosOnly,
+  bool? sendEmail,
+  String? pdfPath,
+}) {
+  return WorkItem(
+    id: id ?? this.id,
+    status: status ?? this.status,
+    createdAt: createdAt ?? this.createdAt,
+    completedAt: completedAt ?? this.completedAt,
+    customerName: customerName ?? this.customerName,
+    phone: phone ?? this.phone,
+    email: email ?? this.email,
+    address: address ?? this.address,
+    notes: notes ?? this.notes,
+    total: total ?? this.total,
+    beforePhotoPath: beforePhotoPath ?? this.beforePhotoPath,
+    afterPhotoPath: afterPhotoPath ?? this.afterPhotoPath,
+    attachPhotos: attachPhotos ?? this.attachPhotos,
+    sendPhotosOnly: sendPhotosOnly ?? this.sendPhotosOnly,
+    sendEmail: sendEmail ?? this.sendEmail,
+    pdfPath: pdfPath ?? this.pdfPath,
+  );
+}
 
-  WorkItem copyWith({
-    String? id,
-    String? status,
-    DateTime? createdAt,
-    DateTime? completedAt,
-    String? customerName,
-    String? phone,
-    String? email,
-    String? address,
-    String? notes,
-    double? total,
-    String? beforePhotoPath,
-    String? afterPhotoPath,
-
-    // NEW
-    bool? attachPhotos,
-    bool? sendPhotosOnly,
-    bool? sendEmail,
-    String? pdfPath,
-  }) {
-    return WorkItem(
-      id: id ?? this.id,
-      status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
-      completedAt: completedAt ?? this.completedAt,
-      customerName: customerName ?? this.customerName,
-      phone: phone ?? this.phone,
-      email: email ?? this.email,
-      address: address ?? this.address,
-      notes: notes ?? this.notes,
-      total: total ?? this.total,
-      beforePhotoPath: beforePhotoPath ?? this.beforePhotoPath,
-      afterPhotoPath: afterPhotoPath ?? this.afterPhotoPath,
-
-      // NEW
-      attachPhotos: attachPhotos ?? this.attachPhotos,
-      sendPhotosOnly: sendPhotosOnly ?? this.sendPhotosOnly,
-      sendEmail: sendEmail ?? this.sendEmail,
-      pdfPath: pdfPath ?? this.pdfPath,
-    );
-  }
-
+  // =========================
+  // 🔴 LOCAL DB (UNCHANGED)
+  // =========================
   Map<String, dynamic> toMap() => {
         'id': id,
         'status': status,
@@ -96,8 +91,6 @@ class WorkItem {
         'total': total,
         'beforePhotoPath': beforePhotoPath ?? "",
         'afterPhotoPath': afterPhotoPath ?? "",
-
-        // NEW
         'attachPhotos': attachPhotos ? 1 : 0,
         'sendPhotosOnly': sendPhotosOnly ? 1 : 0,
         'sendEmail': sendEmail ? 1 : 0,
@@ -106,48 +99,64 @@ class WorkItem {
 
   static WorkItem fromMap(Map<String, dynamic> m) {
     DateTime? parseDT(dynamic v) {
-      if (v == null) return null;
-      final s = v.toString().trim();
-      if (s.isEmpty) return null;
-      return DateTime.tryParse(s);
+      if (v == null || v.toString().isEmpty) return null;
+      return DateTime.tryParse(v.toString());
     }
-    
 
     bool parseBool(dynamic v) => v == 1 || v == true || v == '1';
 
     return WorkItem(
       id: (m['id'] ?? '').toString(),
       status: (m['status'] ?? 'active').toString(),
-      createdAt: DateTime.parse(
-        (m['createdAt'] ?? DateTime.now().toIso8601String()).toString(),
-      ),
+      createdAt: DateTime.parse(m['createdAt']),
       completedAt: parseDT(m['completedAt']),
-      customerName: (m['customerName'] ?? '').toString(),
-      phone: (m['phone'] ?? '').toString(),
-      email: (m['email'] ?? '').toString(),
-      address: (m['address'] ?? '').toString(),
-      notes: (m['notes'] ?? '').toString(),
-      total: (m['total'] is num)
-          ? (m['total'] as num).toDouble()
-          : double.tryParse((m['total'] ?? '0').toString()) ?? 0,
-      beforePhotoPath:
-          (m['beforePhotoPath']?.toString().trim().isEmpty ?? true)
-              ? null
-              : m['beforePhotoPath'].toString(),
-      afterPhotoPath:
-          (m['afterPhotoPath']?.toString().trim().isEmpty ?? true)
-              ? null
-              : m['afterPhotoPath'].toString(),
-
-      // NEW
+      customerName: m['customerName'] ?? '',
+      phone: m['phone'] ?? '',
+      email: m['email'] ?? '',
+      address: m['address'] ?? '',
+      notes: m['notes'] ?? '',
+      total: (m['total'] as num).toDouble(),
+      beforePhotoPath: m['beforePhotoPath'],
+      afterPhotoPath: m['afterPhotoPath'],
       attachPhotos: parseBool(m['attachPhotos']),
       sendPhotosOnly: parseBool(m['sendPhotosOnly']),
       sendEmail: parseBool(m['sendEmail']),
-      pdfPath:
-          (m['pdfPath']?.toString().trim().isEmpty ?? true)
-              ? null
-              : m['pdfPath'].toString(),
+      pdfPath: m['pdfPath'],
     );
   }
-  
+
+  // =========================
+  // 🔥 NEW — API JSON SUPPORT
+  // =========================
+  factory WorkItem.fromJson(Map<String, dynamic> json) {
+    double total = 0;
+
+    if (json['services'] is List) {
+      for (final s in json['services']) {
+        final qty = (s['quantity'] ?? 1) as num;
+        final price = (s['unit_price'] ?? 0) as num;
+        total += qty * price;
+      }
+    }
+
+    return WorkItem(
+      id: (json['task_id'] ?? json['id'] ?? '').toString(),
+      status: (json['status'] ?? 'ACTIVE').toString().toLowerCase(),
+      createdAt:
+          DateTime.tryParse(json['date'] ?? '') ?? DateTime.now(),
+      completedAt: null,
+      customerName: json['customer_name'] ?? '',
+      phone: json['phone'] ?? '',
+      email: json['email'] ?? '',
+      address: json['address'] ?? '',
+      notes: json['description'] ?? '',
+      total: total,
+      beforePhotoPath: null,
+      afterPhotoPath: null,
+      attachPhotos: false,
+      sendPhotosOnly: false,
+      sendEmail: false,
+      pdfPath: null,
+    );
+  }
 }

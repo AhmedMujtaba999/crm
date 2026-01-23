@@ -21,11 +21,9 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
   bool completedByDateSelected = true;
   DateTime selectedDate = DateTime.now();
 
-
   @override
   void initState() {
     super.initState();
-    
 
     if (widget.initialTab == 'completed') {
       activeSelected = false;
@@ -37,8 +35,7 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<WorkItemsProvider>().load(
         active: activeSelected,
-        byDate: completedByDateSelected,
-        selectedDate: selectedDate,
+        date: selectedDate,
       );
     });
   }
@@ -64,21 +61,18 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
 
     setState(() => selectedDate = picked);
 
-    await context.read<WorkItemsProvider>().load(
+    context.read<WorkItemsProvider>().load(
       active: activeSelected,
-      byDate: completedByDateSelected,
-      selectedDate: selectedDate,
+      date: selectedDate,
     );
   }
 
   Future<void> _openInvoice(WorkItem it) async {
     await Navigator.pushNamed(context, '/invoice', arguments: it.id);
     if (!mounted) return;
-
-    await context.read<WorkItemsProvider>().load(
+    context.read<WorkItemsProvider>().load(
       active: activeSelected,
-      byDate: completedByDateSelected,
-      selectedDate: selectedDate,
+      date: selectedDate,
     );
   }
 
@@ -105,9 +99,8 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
 
     if (ok != true) return;
 
-    await context.read<WorkItemsProvider>().deleteItem(
-      it.id.toString(),
-    ); // deleting the completed work item using provider
+    context.read<WorkItemsProvider>().deleteItem(it.id);
+    // deleting the completed work item using provider
 
     if (!mounted) return;
     ScaffoldMessenger.of(
@@ -130,9 +123,8 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
               onLeft: () {
                 setState(() => activeSelected = true);
                 context.read<WorkItemsProvider>().load(
-                  active: true,
-                  byDate: false,
-                  selectedDate: selectedDate,
+                  active: activeSelected,
+                  date: selectedDate,
                 );
               },
               onRight: () {
@@ -142,9 +134,8 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
                   selectedDate = DateTime.now();
                 });
                 context.read<WorkItemsProvider>().load(
-                  active: false,
-                  byDate: true,
-                  selectedDate: selectedDate,
+                  active: activeSelected,
+                  date: selectedDate,
                 );
               },
             ),
@@ -172,10 +163,9 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
 
                 return RefreshIndicator(
                   onRefresh: () async {
-                    await provider.load(
+                    context.read<WorkItemsProvider>().load(
                       active: activeSelected,
-                      byDate: completedByDateSelected,
-                      selectedDate: selectedDate,
+                      date: selectedDate,
                     );
                   },
                   child: ListView.separated(
@@ -270,9 +260,8 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
               onTap: () {
                 setState(() => completedByDateSelected = true);
                 context.read<WorkItemsProvider>().load(
-                  active: false,
-                  byDate: true,
-                  selectedDate: selectedDate,
+                  active: activeSelected,
+                  date: selectedDate,
                 );
               },
               child: Center(child: const Text("By date")),
@@ -283,9 +272,8 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
               onTap: () {
                 setState(() => completedByDateSelected = false);
                 context.read<WorkItemsProvider>().load(
-                  active: false,
-                  byDate: false,
-                  selectedDate: selectedDate,
+                  active: activeSelected,
+                  date: selectedDate,
                 );
               },
               child: Center(child: const Text("History")),
@@ -349,7 +337,11 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
                           children: [
                             Icon(Icons.delete_outline, color: Colors.red),
                             SizedBox(width: 8),
-                            Text("Delete", style: TextStyle(color: Colors.red)),
+                          //  Text("Delete", style: TextStyle(color: Colors.red)),
+                            Text(
+                              "Delete (Coming soon)",
+                              style: TextStyle(color: Colors.grey),
+                            ),
                           ],
                         ),
                       ),

@@ -117,11 +117,8 @@ class _InvoicePageState extends State<InvoicePage> {
     if (!mounted) return;
 
     /// 3️⃣ REFRESH COMPLETED LIST
-    await context.read<WorkItemsProvider>().load(
-      active: false,
-      byDate: false,
-      selectedDate: DateTime.now(),
-    );
+   await context.read<WorkItemsProvider>().load(active: false, date: DateTime.now());
+
 
     if (!mounted) return;
 
