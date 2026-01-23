@@ -1,30 +1,46 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 import 'package:crm/models/models.dart';
 import 'package:crm/service_of_providers/create_work_item_service.dart';
 
 class CreateWorkItemProvider extends ChangeNotifier {
   final _service = CreateWorkItemService();
 
-  String? confirmedCreateForPhone;
-  bool isSaving = false;
+  // ---------------- SERVICE CATALOG (API) ----------------
+
+  List<ServiceCatalogItem> _serviceCatalog = [];
+  List<ServiceCatalogItem> get serviceCatalog => _serviceCatalog;
+
+  bool isCatalogLoading = false;
+
+  Future<void> loadServiceCatalog() async {
+    try {
+      isCatalogLoading = true;
+      notifyListeners();
+
+      _serviceCatalog = await _service.getServiceCatalog();
+    } catch (e) {
+      debugPrint('Service catalog load failed: $e');
+    } finally {
+      isCatalogLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ---------------- SELECTED SERVICES ----------------
 
   final List<ServiceItem> services = [];
 
   double get total =>
       services.fold(0.0, (sum, s) => sum + s.amount);
 
-  // ---------------- Services ----------------
-
-  void addService(String name, double amount) {
-    if (services.any((s) => s.name == name)) return;
-
-    services.add(ServiceItem(
-      id: const Uuid().v4(),
-      workItemId: 'temp',
-      name: name,
-      amount: amount,
-    ));
+  void addService(ServiceCatalogItem catalogItem, double amount) {
+    services.add(
+      ServiceItem(
+        serviceid: catalogItem.id, // ✅ REAL FK
+        name: catalogItem.name,
+        amount: amount,
+      ),
+    );
     notifyListeners();
   }
 
@@ -33,11 +49,14 @@ class CreateWorkItemProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ---------------- CUSTOMER FLOW ----------------
+
+  String? confirmedCreateForPhone;
+  bool isSaving = false;
+
   void resetConfirmedCreate() {
     confirmedCreateForPhone = null;
   }
-
-  // ---------------- Customer Checks ----------------
 
   Future<bool> customerExists({
     required String phone,
@@ -53,9 +72,9 @@ class CreateWorkItemProvider extends ChangeNotifier {
     return _service.findLatestByCustomer(phone: phone, email: email);
   }
 
-  // ---------------- Save Work Item ----------------
+  // ---------------- SAVE WORK ITEM ----------------
 
-  Future<void> save({
+  Future<WorkItemCreateResponse> save({
     required String customerName,
     required String phone,
     required String email,
@@ -63,41 +82,29 @@ class CreateWorkItemProvider extends ChangeNotifier {
     required String notes,
   }) async {
     if (services.isEmpty) {
-      throw Exception("No services added");
+      throw Exception("Add at least one service");
     }
 
     isSaving = true;
     notifyListeners();
 
-    final id = const Uuid().v4();
+    try {
+      final response = await _service.save(
+        customerName: customerName,
+        phone: phone,
+        email: email,
+        address: address,
+        notes: notes,
+        services: services,
+      );
 
-    final item = WorkItem(
-      id: id,
-      status: 'active',
-      createdAt: DateTime.now(),
-      customerName: customerName,
-      phone: phone,
-      email: email,
-      address: address,
-      notes: notes,
-      total: total,
-    );
+      services.clear();
+      confirmedCreateForPhone = null;
 
-    final mappedServices = services
-        .map((s) => ServiceItem(
-              id: s.id,
-              workItemId: id,
-              name: s.name,
-              amount: s.amount,
-            ))
-        .toList();
-
-    await _service.saveWorkItem(item, mappedServices);
-
-    services.clear(); // reset for next create
-    confirmedCreateForPhone = null;
-
-    isSaving = false;
-    notifyListeners();
+      return response;
+    } finally {
+      isSaving = false;
+      notifyListeners();
+    }
   }
 }
