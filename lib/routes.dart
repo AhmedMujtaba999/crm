@@ -2,14 +2,13 @@ import 'package:crm/authgate.dart';
 import 'package:crm/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
+import 'package:crm/models/models.dart';
 import 'splash.dart';
 import 'home_shell.dart';
 import 'task_create.dart';
 import 'invoice.dart';
 import 'providers/task_create_provider.dart';
 import 'providers/invoice_provider.dart';
-import 'providers/home_shell_provider.dart';
 
 class AppRoutes {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -42,34 +41,26 @@ class AppRoutes {
       // ---------------- Invoice (WITH PROVIDER) ----------------
       case '/invoice':
         {
-          final args = settings.arguments;
+          final args = settings.arguments as Map?;
+          final item = args?['item'];
+          debugPrint(
+            'Route /invoice received item: $item (type: ${item.runtimeType})',
+          );
 
-          String? workItemId;
-
-          // Accept: String OR {'id': '...'}
-          if (args is String && args.trim().isNotEmpty) {
-            workItemId = args.trim();
-          } else if (args is Map && args['id'] is String) {
-            workItemId = (args['id'] as String).trim();
-          }
-
-          // Safety fallback
-          if (workItemId == null) {
+          if (item is WorkItem) {
             return MaterialPageRoute(
-              builder: (_) => const Scaffold(
-                body: Center(child: Text("Missing Work Item ID for invoice.")),
+              builder: (_) => ChangeNotifierProvider(
+                create: (_) =>
+                    InvoiceProvider()..loadFromWorkItem(workItem: item),
+                child: const InvoicePage(),
               ),
             );
+          } else {
+            return MaterialPageRoute(
+              builder: (_) => const SplashScreen(),
+              settings: settings,
+            );
           }
-
-          // ✅ Correct Provider Injection
-          return MaterialPageRoute(
-            settings: settings,
-            builder: (_) => ChangeNotifierProvider(
-              create: (_) => InvoiceProvider()..load(workItemId!),
-              child: const InvoicePage(),
-            ),
-          );
         }
 
       // ---------------- Create Task ----------------
