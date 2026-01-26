@@ -9,6 +9,7 @@ import 'package:crm/models/models.dart';
 import '../storage.dart';
 import 'package:crm/services/invoice_pdf_service.dart';
 import 'package:crm/services/email_service.dart';
+import 'package:crm/service_of_providers/work_items_services.dart';
 
 class InvoiceLoadResult {
   final WorkItem item;
@@ -28,16 +29,21 @@ class InvoiceService {
   final _picker = ImagePicker();
   final _pdfService = InvoicePdfService();
   final _emailService = EmailService();
+  final WorkItemsService _workItemsService = WorkItemsService();
 
-  // ---------------- Load ----------------
-  Future<InvoiceLoadResult> loadInvoice(String id) async {
-    final item = await AppDb.instance.getWorkItem(id);
-    final services = await AppDb.instance.listServices(id);
+  // ✅ NEW: Load invoice using WorkItem you already got from API list
+  Future<InvoiceLoadResult> loadFromWorkItem({
+    required WorkItem item,
+  }) async {
+    final before = await _readManifest(item.id, true);
+    final after = await _readManifest(item.id, false);
 
-    final before = await _readManifest(id, true);
-    final after = await _readManifest(id, false);
+    // ✅ IMPORTANT:
+    // This assumes your WorkItem already contains services OR you store them separately.
+    // If your WorkItem doesn't include services, we’ll pass services from UI/provider instead.
+    final services = item.services ?? <ServiceItem>[];
 
-    return InvoiceLoadResult(item!, services, before, after);
+    return InvoiceLoadResult(item, services, before, after);
   }
 
   // ---------------- Photos ----------------
@@ -78,12 +84,41 @@ class InvoiceService {
     await _writeManifest(id, true, before);
     await _writeManifest(id, false, after);
 
+    // ✅ Keep local photo caching only (as you requested)
     await AppDb.instance.updatePhotos(
       workItemId: id,
       beforePath: before.isEmpty ? "" : before.first,
       afterPath: after.isEmpty ? "" : after.first,
     );
   }
+Future<void> updateCustomerInfo({
+  required String workItemId,
+  required String customerName,
+  required String phone,
+  required String email,
+  required String address,
+}) async {
+  await AppDb.instance.updateWorkItemCustomerInfo(
+    workItemId: workItemId,
+    customerName: customerName,
+    phone: phone,
+    email: email,
+    address: address,
+  );
+}
+// ---------------- COMPLETE (API) ----------------
+Future<void> markCompletedApi({
+  required String workItemId,
+  required bool sendInvoice,
+  required bool sendPictures,
+}) async {
+  await _workItemsService.updateTaskStatus(
+    taskId: workItemId,
+    status: 'COMPLETED',
+    sendInvoice: sendInvoice,
+    sendPictures: sendPictures,
+  );
+}
 
   // ---------------- PDF ----------------
   Future<Uint8List> buildPdf(
@@ -127,9 +162,8 @@ class InvoiceService {
     Uint8List pdfBytes,
     List<String> before,
     List<String> after, {
-    required bool attachPhotos, // ✅ CONTROLLED BY UI
+    required bool attachPhotos,
   }) async {
-    // ✅ Use temp directory so email apps can read the file reliably
     final tempDir = await getTemporaryDirectory();
     final file = File('${tempDir.path}/invoice_${item.id}.pdf');
 
@@ -137,31 +171,11 @@ class InvoiceService {
 
     return _emailService.sendInvoiceEmail(
       item: item,
-      pdfPath: file.path, // ✅ ALWAYS PDF
-      attachPhotos: attachPhotos, // ✅ photos optional
+      pdfPath: file.path,
+      attachPhotos: attachPhotos,
       beforePhotoPaths: before,
       afterPhotoPaths: after,
     );
-  }
-
-  Future<void> updateCustomerInfo({
-    required String workItemId,
-    required String customerName,
-    required String phone,
-    required String email,
-    required String address,
-  }) async {
-    await AppDb.instance.updateWorkItemCustomerInfo(
-      workItemId: workItemId,
-      customerName: customerName,
-      phone: phone,
-      email: email,
-      address: address,
-    );
-  }
-
-  Future<void> markCompleted(String id) {
-    return AppDb.instance.markCompleted(id);
   }
 
   // ---------------- Helpers ----------------
@@ -172,21 +186,12 @@ class InvoiceService {
     return dir;
   }
 
-  Future<Directory> _invoiceDir(String id) async {
-    final base = await _baseDir(id);
-    final dir = Directory('${base.path}/invoices');
-    if (!await dir.exists()) await dir.create(recursive: true);
-    return dir;
-  }
-
   Future<String> _storePickedFile(String id, bool before, XFile x) async {
     final base = await _baseDir(id);
     final dir = Directory('${base.path}/photos/${before ? "before" : "after"}');
     if (!await dir.exists()) await dir.create(recursive: true);
 
-    final out = File(
-      '${dir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg',
-    );
+    final out = File('${dir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg');
     await out.writeAsBytes(await x.readAsBytes(), flush: true);
     return out.path;
   }

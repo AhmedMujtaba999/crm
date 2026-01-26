@@ -119,8 +119,8 @@ class CreateWorkItemService {
         "address": address,
         "services": apiServices,
       };
-print("DESCRIPTION SENT => '${requestBody["description"]}'");
-print("FULL REQUEST BODY => ${jsonEncode(requestBody)}");
+      print("DESCRIPTION SENT => '${requestBody["description"]}'");
+      print("FULL REQUEST BODY => ${jsonEncode(requestBody)}");
 
       final response = await http
           .post(

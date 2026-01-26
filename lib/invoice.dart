@@ -1,11 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import 'widgets.dart';
 import 'theme.dart';
-
+import 'package:crm/models/models.dart';
 import 'providers/invoice_provider.dart';
 import 'pdf_preview_page.dart';
 import 'providers/work_items_provider.dart';
@@ -18,6 +17,23 @@ class InvoicePage extends StatefulWidget {
 }
 
 class _InvoicePageState extends State<InvoicePage> {
+  static const int _maxPhotosPerSection = 20;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // ✅ Load ONLY ONCE
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final args = ModalRoute.of(context)?.settings.arguments;
+if (args is Map && args['item'] is WorkItem) {
+  final WorkItem receivedItem = args['item'] as WorkItem;
+  context.read<InvoiceProvider>().loadFromWorkItem(workItem: receivedItem);
+}
+
+    });
+  }
+
   Future<void> _showCompletedPrompt() async {
     if (!mounted) return;
 
@@ -57,28 +73,6 @@ class _InvoicePageState extends State<InvoicePage> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  static const int _maxPhotosPerSection = 20;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _init());
-  }
-
-  String? _readWorkItemId() {
-    final args = ModalRoute.of(context)?.settings.arguments;
-    if (args is String && args.trim().isNotEmpty) return args.trim();
-    if (args is Map && args['id'] is String) return args['id'];
-    return null;
-  }
-
-  Future<void> _init() async {
-    final id = _readWorkItemId();
-    if (id == null) return;
-    await context.read<InvoiceProvider>().load(id);
-  }
-
-  // ===================== COMPLETE =====================
   Future<void> _completeWorkItem() async {
     final p = context.read<InvoiceProvider>();
 
@@ -106,23 +100,22 @@ class _InvoicePageState extends State<InvoicePage> {
 
     if (ok != true) return;
 
-    /// 1️⃣ COMPLETE (NO NAVIGATION YET)
     await p.complete();
 
     if (!mounted) return;
 
-    /// 2️⃣ SHOW GREEN POPUP (BLOCKING)
     await _showCompletedPrompt();
 
     if (!mounted) return;
 
-    /// 3️⃣ REFRESH COMPLETED LIST
-   await context.read<WorkItemsProvider>().load(active: false, date: DateTime.now());
-
+    // ✅ Refresh completed list
+    await context.read<WorkItemsProvider>().load(
+      active: false,
+      date: DateTime.now(),
+    );
 
     if (!mounted) return;
 
-    /// 4️⃣ NOW NAVIGATE
     Navigator.pushNamedAndRemoveUntil(
       context,
       '/home',
@@ -131,7 +124,6 @@ class _InvoicePageState extends State<InvoicePage> {
     );
   }
 
-  // ===================== UI =====================
   @override
   Widget build(BuildContext context) {
     final p = context.watch<InvoiceProvider>();
@@ -148,20 +140,20 @@ class _InvoicePageState extends State<InvoicePage> {
             child: p.loading
                 ? const Center(child: CircularProgressIndicator())
                 : p.item == null
-                ? _errorState()
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        _actionRow(p),
-                        const SizedBox(height: 12),
-                        _invoiceCard(p),
-                        const SizedBox(height: 14),
-                        _photoEmailSection(p),
-                        const SizedBox(height: 120),
-                      ],
-                    ),
-                  ),
+                    ? _errorState()
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            _actionRow(p),
+                            const SizedBox(height: 12),
+                            _invoiceCard(p.item!, p),
+                            const SizedBox(height: 14),
+                            _photoEmailSection(p.item!, p),
+                            const SizedBox(height: 120),
+                          ],
+                        ),
+                      ),
           ),
         ],
       ),
@@ -198,7 +190,6 @@ class _InvoicePageState extends State<InvoicePage> {
     );
   }
 
-  // ===================== ACTION ROW =====================
   Widget _actionRow(InvoiceProvider p) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -229,18 +220,8 @@ class _InvoicePageState extends State<InvoicePage> {
               ),
             );
           }),
-
-          _actionBtn(
-            Icons.download,
-            "Save",
-            () => p.savePdf(), // ✅ PROVIDER CALL
-          ),
-
-          _actionBtn(
-            Icons.share,
-            "Share",
-            () => p.sharePdf(), // ✅ PROVIDER CALL
-          ),
+          _actionBtn(Icons.download, "Save", () => p.savePdf()),
+          _actionBtn(Icons.share, "Share", () => p.sharePdf()),
         ],
       ),
     );
@@ -258,13 +239,7 @@ class _InvoicePageState extends State<InvoicePage> {
     );
   }
 
-  // ===================== INVOICE CARD =====================
-  Widget _invoiceCard(InvoiceProvider p) {
-    final it = p.item!;
-    final createdText = DateFormat(
-      'EEE, MMM d, y • h:mm a',
-    ).format(it.createdAt);
-
+  Widget _invoiceCard(WorkItem it, InvoiceProvider p) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -281,166 +256,109 @@ class _InvoicePageState extends State<InvoicePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
-
-// Edit/Save button row
-        if (!p.readOnly)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton.icon(
-                onPressed: p.completing ? null : () {
-                  if (p.isEditingCustomerInfo) {
-                    p.saveCustomerInfo();
-                  } else {
-                    p.toggleEditCustomerInfo();
-                  }
-                },
-                icon: Icon(
-                  p.isEditingCustomerInfo ? Icons.check : Icons.edit,
-                  size: 18,
-                ),
-                label: Text(
-                  p.isEditingCustomerInfo ? "Save" : "Edit",
-                ),
-              ),
-              if (p.isEditingCustomerInfo)
-                TextButton.icon(
-                  onPressed: () => p.toggleEditCustomerInfo(),
-                  icon: const Icon(Icons.close, size: 18),
-                  label: const Text("Cancel"),
-                ),
-            ],
-          ),
-        
-        // Customer Information Fields
-        if (p.isEditingCustomerInfo) ...[
-          // Edit Mode - Text Fields
-          TextFormField(
-            controller: p.customerNameController,
-            decoration: const InputDecoration(
-              labelText: "Customer Name",
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: p.phoneController,
-            decoration: const InputDecoration(
-              labelText: "Phone",
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            keyboardType: TextInputType.phone,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: p.emailController,
-            decoration: const InputDecoration(
-              labelText: "Email",
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: p.addressController,
-            decoration: const InputDecoration(
-              labelText: "Address",
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            maxLines: 2,
-          ),
-        ] else ...[
-          // View Mode - Text Display
-          Text(
-            it.customerName,
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-          ),
-          const SizedBox(height: 4),
-          Text(it.phone),
-          if (it.email.isNotEmpty) Text(it.email),
-          if (it.address.isNotEmpty) Text(it.address),
-        ],
-        
-        const Divider(height: 26),
-        
-        // Services section (unchanged)
-        ...p.services.map(
-          (s) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          if (!p.readOnly)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Text(
-                  s.name,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
+                TextButton.icon(
+                  onPressed: p.completing
+                      ? null
+                      : () {
+                          if (p.isEditingCustomerInfo) {
+                            p.saveCustomerInfo();
+                          } else {
+                            p.toggleEditCustomerInfo();
+                          }
+                        },
+                  icon: Icon(
+                    p.isEditingCustomerInfo ? Icons.check : Icons.edit,
+                    size: 18,
+                  ),
+                  label: Text(p.isEditingCustomerInfo ? "Save" : "Edit"),
                 ),
-                Text("\$${s.amount.toStringAsFixed(2)}"),
+                if (p.isEditingCustomerInfo)
+                  TextButton.icon(
+                    onPressed: () => p.toggleEditCustomerInfo(),
+                    icon: const Icon(Icons.close, size: 18),
+                    label: const Text("Cancel"),
+                  ),
               ],
             ),
-          ),
-        ),
-        const Divider(height: 26),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              "Total Amount",
-              style: TextStyle(fontWeight: FontWeight.w900),
-            ),
-            Text(
-              "\$${it.total.toStringAsFixed(2)}",
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                color: AppColors.primary,
+
+          if (p.isEditingCustomerInfo) ...[
+            TextFormField(
+              controller: p.customerNameController,
+              decoration: const InputDecoration(
+                labelText: "Customer Name",
+                border: OutlineInputBorder(),
+                isDense: true,
               ),
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
             ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: p.phoneController,
+              decoration: const InputDecoration(
+                labelText: "Phone",
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: p.emailController,
+              decoration: const InputDecoration(
+                labelText: "Email",
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: p.addressController,
+              decoration: const InputDecoration(
+                labelText: "Address",
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              maxLines: 2,
+            ),
+          ] else ...[
+            Text(
+              it.customerName,
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+            ),
+            const SizedBox(height: 4),
+            Text(it.phone),
+            if (it.email.isNotEmpty) Text(it.email),
+            if (it.address.isNotEmpty) Text(it.address),
           ],
-        ),
-  
-  
 
-
-
-
-
-          Text(
-            it.customerName,
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-          ),
-          const SizedBox(height: 4),
-          Text(it.phone),
-          if (it.email.isNotEmpty) Text(it.email),
-          if (it.address.isNotEmpty) Text(it.address),
           const Divider(height: 26),
+
           ...p.services.map(
             (s) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    s.name,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
+                  Text(s.name,
+                      style: const TextStyle(fontWeight: FontWeight.w800)),
                   Text("\$${s.amount.toStringAsFixed(2)}"),
                 ],
               ),
             ),
           ),
+
           const Divider(height: 26),
+
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                "Total Amount",
-                style: TextStyle(fontWeight: FontWeight.w900),
-              ),
+              const Text("Total Amount",
+                  style: TextStyle(fontWeight: FontWeight.w900)),
               Text(
                 "\$${it.total.toStringAsFixed(2)}",
                 style: const TextStyle(
@@ -455,10 +373,9 @@ class _InvoicePageState extends State<InvoicePage> {
     );
   }
 
-  // ===================== PHOTOS + EMAIL =====================
-  Widget _photoEmailSection(InvoiceProvider p) {
-    final Invoicedisabled = p.readOnly || p.completing;
-     final photosDisabled = p.completing || (p.readOnly && !p.photosEditable);
+  Widget _photoEmailSection(WorkItem it, InvoiceProvider p) {
+    final invoiceDisabled = p.readOnly || p.completing;
+    final photosDisabled = p.completing || (p.readOnly && !p.photosEditable);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -469,10 +386,10 @@ class _InvoicePageState extends State<InvoicePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          /// ✅ Attach Photos
           CheckboxListTile(
             value: p.attachPhotos,
-            onChanged: photosDisabled ? null : (v) => p.toggleAttachPhotos(v ?? false),
+            onChanged:
+                photosDisabled ? null : (v) => p.toggleAttachPhotos(v ?? false),
             title: const Text("Attach Before/After Photos"),
           ),
 
@@ -494,24 +411,25 @@ class _InvoicePageState extends State<InvoicePage> {
               onGallery: () => p.addFromGallery(before: false),
               onRemove: (path) => p.removePhoto(before: false, path: path),
             ),
-          ], 
-           // send photos
-            if (p.attachPhotos)
+          ],
+
+          if (p.attachPhotos)
             CheckboxListTile(
               value: p.sendPhotos,
-              onChanged: photosDisabled?null:(v) => p.toggleSendPhotos(v?? false),
+              onChanged:
+                  photosDisabled ? null : (v) => p.toggleSendPhotos(v ?? false),
               title: const Text("Send photos"),
             ),
-          /// ✅ Send Email
+
           CheckboxListTile(
             value: p.sendEmail,
-            onChanged: (p.item!.email.isEmpty || Invoicedisabled)
+            onChanged: (it.email.isEmpty || invoiceDisabled)
                 ? null
                 : (v) => p.toggleSendEmail(v ?? false),
             title: const Text("Send Email"),
           ),
 
-          if (p.item!.email.isEmpty)
+          if (it.email.isEmpty)
             const Padding(
               padding: EdgeInsets.only(left: 16, top: 4),
               child: Text(
@@ -519,7 +437,6 @@ class _InvoicePageState extends State<InvoicePage> {
                 style: TextStyle(color: Colors.redAccent, fontSize: 12),
               ),
             ),
-        
         ],
       ),
     );
@@ -566,10 +483,8 @@ class _InvoicePageState extends State<InvoicePage> {
         ),
         const SizedBox(height: 8),
         photos.isEmpty
-            ? const Text(
-                "No photos added.",
-                style: TextStyle(color: Colors.grey),
-              )
+            ? const Text("No photos added.",
+                style: TextStyle(color: Colors.grey))
             : Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -587,11 +502,8 @@ class _InvoicePageState extends State<InvoicePage> {
     );
   }
 
-  Widget _thumb(
-    String path, {
-    required bool disabled,
-    required VoidCallback onRemove,
-  }) {
+  Widget _thumb(String path,
+      {required bool disabled, required VoidCallback onRemove}) {
     return Stack(
       children: [
         ClipRRect(
@@ -611,7 +523,7 @@ class _InvoicePageState extends State<InvoicePage> {
               onTap: onRemove,
               child: Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.black54,
                   shape: BoxShape.circle,
                 ),

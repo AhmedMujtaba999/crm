@@ -6,7 +6,6 @@ import 'widgets.dart';
 import 'package:provider/provider.dart';
 import 'providers/create_work_item_provider.dart';
 
-
 class CreateWorkItemPage extends StatefulWidget {
   final TaskItem? prefillTask;
   const CreateWorkItemPage({super.key, this.prefillTask});
@@ -32,6 +31,7 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
   @override
   void initState() {
     super.initState();
+
     /// 🔧 CHANGED: load service catalog once
     Future.microtask(() {
       context.read<CreateWorkItemProvider>().loadServiceCatalog();
@@ -75,61 +75,59 @@ class _CreateWorkItemPageState extends State<CreateWorkItemPage> {
     setState(() => selectedService = null);
     amountC.clear();
   }
-Future<void> _save() async {
-  final provider = context.read<CreateWorkItemProvider>();
 
-  // 1️⃣ Validate form
-  if (!(_formKey.currentState?.validate() ?? false)) return;
+  Future<void> _save() async {
+    final provider = context.read<CreateWorkItemProvider>();
 
-  // 2️⃣ Ensure services exist
-  if (provider.services.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Add at least one service")),
-    );
-    return;
-  }
+    // 1️⃣ Validate form
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
-  setState(() => _isSaving = true);
+    // 2️⃣ Ensure services exist
+    if (provider.services.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Add at least one service")));
+      return;
+    }
 
-  try {
-    // 3️⃣ Call API
-    final response = await provider.save(
-      customerName: nameC.text.trim(),
-      phone: phoneC.text.trim(),
-      email: emailC.text.trim(),
-      address: addressC.text.trim(),
-      notes: notesC.text.trim(),
-    );
+    setState(() => _isSaving = true);
 
-    // 4️⃣ SAFETY CHECK
-    if (!mounted) return;
+    try {
+      // 3️⃣ Call API
+      final response = await provider.save(
+        customerName: nameC.text.trim(),
+        phone: phoneC.text.trim(),
+        email: emailC.text.trim(),
+        address: addressC.text.trim(),
+        notes: notesC.text.trim(),
+      );
 
-    // 5️⃣ SHOW SUCCESS MESSAGE ✅
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(response.message)),
-    );
+      // 4️⃣ SAFETY CHECK
+      if (!mounted) return;
 
-    // 6️⃣ GO TO HOME (Active tab) ✅
-    Navigator.pushReplacementNamed(
-      context,
-      '/home',
-      arguments: {
-        'tab': 1,
-        'workTab': 'active',
-      },
-    );
-  } catch (e) {
-    if (!mounted) return;
+      // 5️⃣ SHOW SUCCESS MESSAGE ✅
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(response.message)));
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Save failed: $e")),
-    );
-  } finally {
-    if (mounted) {
-      setState(() => _isSaving = false);
+      // 6️⃣ GO TO HOME (Active tab) ✅
+      Navigator.pushReplacementNamed(
+        context,
+        '/home',
+        arguments: {'tab': 1, 'workTab': 'active'},
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Save failed: $e")));
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
-}
 
   // Future<void> _save() async {
   //   final provider = context.read<CreateWorkItemProvider>();
@@ -188,10 +186,16 @@ Future<void> _save() async {
                       child: Column(
                         children: [
                           _input("Customer Name", nameC),
-                          _input("Phone", phoneC,
-                              keyboard: TextInputType.phone),
-                          _input("Email", emailC,
-                              keyboard: TextInputType.emailAddress),
+                          _input(
+                            "Phone",
+                            phoneC,
+                            keyboard: TextInputType.phone,
+                          ),
+                          _input(
+                            "Email",
+                            emailC,
+                            keyboard: TextInputType.emailAddress,
+                          ),
                           _input("Address", addressC),
                         ],
                       ),
@@ -208,21 +212,21 @@ Future<void> _save() async {
                         Row(
                           children: [
                             Expanded(
-                              child: DropdownButtonFormField<ServiceCatalogItem>(
-                                value: selectedService,
-                                hint: const Text("Select service"),
-                                items: catalog
-                                    .map(
-                                      (s) =>
-                                          DropdownMenuItem<ServiceCatalogItem>(
-                                        value: s,
-                                        child: Text(s.name),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (v) =>
-                                    setState(() => selectedService = v),
-                              ),
+                              child:
+                                  DropdownButtonFormField<ServiceCatalogItem>(
+                                    value: selectedService,
+                                    hint: const Text("Select service"),
+                                    items: catalog
+                                        .map(
+                                          (s) =>
+                                              DropdownMenuItem<
+                                                ServiceCatalogItem
+                                              >(value: s, child: Text(s.name)),
+                                        )
+                                        .toList(),
+                                    onChanged: (v) =>
+                                        setState(() => selectedService = v),
+                                  ),
                             ),
                             const SizedBox(width: 10),
                             SizedBox(
@@ -231,13 +235,16 @@ Future<void> _save() async {
                                 controller: amountC,
                                 keyboardType:
                                     const TextInputType.numberWithOptions(
-                                        decimal: true),
+                                      decimal: true,
+                                    ),
                                 inputFormatters: [
                                   FilteringTextInputFormatter.allow(
-                                      RegExp(r'[0-9.]'))
+                                    RegExp(r'[0-9.]'),
+                                  ),
                                 ],
-                                decoration:
-                                    const InputDecoration(hintText: "Amount"),
+                                decoration: const InputDecoration(
+                                  hintText: "Amount",
+                                ),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -254,8 +261,7 @@ Future<void> _save() async {
                           (s) => ServiceRow(
                             name: s.name,
                             amount: s.amount,
-                            onDelete: () =>
-                                provider.removeService(s),
+                            onDelete: () => provider.removeService(s),
                           ),
                         ),
 
@@ -263,10 +269,9 @@ Future<void> _save() async {
                           const Divider(),
                           Text(
                             "Total: \$${provider.total.toStringAsFixed(2)}",
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
-                        ]
+                        ],
                       ],
                     ),
                   ),
@@ -278,8 +283,9 @@ Future<void> _save() async {
                     child: TextField(
                       controller: notesC,
                       maxLines: 3,
-                      decoration:
-                          const InputDecoration(hintText: "Optional notes"),
+                      decoration: const InputDecoration(
+                        hintText: "Optional notes",
+                      ),
                     ),
                   ),
 
@@ -298,8 +304,11 @@ Future<void> _save() async {
     );
   }
 
-  Widget _input(String label, TextEditingController c,
-      {TextInputType keyboard = TextInputType.text}) {
+  Widget _input(
+    String label,
+    TextEditingController c, {
+    TextInputType keyboard = TextInputType.text,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(

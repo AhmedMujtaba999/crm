@@ -67,14 +67,20 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
     );
   }
 
-  Future<void> _openInvoice(WorkItem it) async {
-    await Navigator.pushNamed(context, '/invoice', arguments: it.id);
-    if (!mounted) return;
-    context.read<WorkItemsProvider>().load(
-      active: activeSelected,
-      date: selectedDate,
-    );
-  }
+ Future<void> _openInvoice(WorkItem it) async {
+  await Navigator.pushNamed(
+    context,
+    '/invoice',
+    arguments: {'item': it}, // ✅ pass whole item
+  );
+
+  if (!mounted) return;
+  context.read<WorkItemsProvider>().load(
+    active: activeSelected,
+    date: selectedDate,
+  );
+}
+
 
   Future<void> _deleteWorkItem(WorkItem it) async {
     final ok = await showDialog<bool>(
@@ -337,7 +343,7 @@ class _WorkItemsPageState extends State<WorkItemsPage> {
                           children: [
                             Icon(Icons.delete_outline, color: Colors.red),
                             SizedBox(width: 8),
-                          //  Text("Delete", style: TextStyle(color: Colors.red)),
+                            //  Text("Delete", style: TextStyle(color: Colors.red)),
                             Text(
                               "Delete (Coming soon)",
                               style: TextStyle(color: Colors.grey),

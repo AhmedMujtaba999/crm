@@ -1,3 +1,5 @@
+import 'service_item.dart';
+
 class WorkItem {
   final String id;
   final String status; // active | completed
@@ -18,6 +20,7 @@ class WorkItem {
   final bool sendPhotosOnly;
   final bool sendEmail;
   final String? pdfPath;
+  final List<ServiceItem> services;
 
   WorkItem({
     required this.id,
@@ -36,66 +39,70 @@ class WorkItem {
     this.sendPhotosOnly = false,
     this.sendEmail = false,
     this.pdfPath,
+    required this.services,
   });
-WorkItem copyWith({
-  String? id,
-  String? status,
-  DateTime? createdAt,
-  DateTime? completedAt,
-  String? customerName,
-  String? phone,
-  String? email,
-  String? address,
-  String? notes,
-  double? total,
-  String? beforePhotoPath,
-  String? afterPhotoPath,
-  bool? attachPhotos,
-  bool? sendPhotosOnly,
-  bool? sendEmail,
-  String? pdfPath,
-}) {
-  return WorkItem(
-    id: id ?? this.id,
-    status: status ?? this.status,
-    createdAt: createdAt ?? this.createdAt,
-    completedAt: completedAt ?? this.completedAt,
-    customerName: customerName ?? this.customerName,
-    phone: phone ?? this.phone,
-    email: email ?? this.email,
-    address: address ?? this.address,
-    notes: notes ?? this.notes,
-    total: total ?? this.total,
-    beforePhotoPath: beforePhotoPath ?? this.beforePhotoPath,
-    afterPhotoPath: afterPhotoPath ?? this.afterPhotoPath,
-    attachPhotos: attachPhotos ?? this.attachPhotos,
-    sendPhotosOnly: sendPhotosOnly ?? this.sendPhotosOnly,
-    sendEmail: sendEmail ?? this.sendEmail,
-    pdfPath: pdfPath ?? this.pdfPath,
-  );
-}
+  WorkItem copyWith({
+    String? id,
+    String? status,
+    DateTime? createdAt,
+    DateTime? completedAt,
+    String? customerName,
+    String? phone,
+    String? email,
+    String? address,
+    String? notes,
+    double? total,
+    String? beforePhotoPath,
+    String? afterPhotoPath,
+    bool? attachPhotos,
+    bool? sendPhotosOnly,
+    bool? sendEmail,
+    String? pdfPath,
+    List<ServiceItem>? services,
+  }) {
+    return WorkItem(
+      id: id ?? this.id,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      completedAt: completedAt ?? this.completedAt,
+      customerName: customerName ?? this.customerName,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      address: address ?? this.address,
+      notes: notes ?? this.notes,
+      total: total ?? this.total,
+      beforePhotoPath: beforePhotoPath ?? this.beforePhotoPath,
+      afterPhotoPath: afterPhotoPath ?? this.afterPhotoPath,
+      attachPhotos: attachPhotos ?? this.attachPhotos,
+      sendPhotosOnly: sendPhotosOnly ?? this.sendPhotosOnly,
+      sendEmail: sendEmail ?? this.sendEmail,
+      pdfPath: pdfPath ?? this.pdfPath,
+      services: services ?? this.services,
+    );
+  }
 
   // =========================
   // 🔴 LOCAL DB (UNCHANGED)
   // =========================
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'status': status,
-        'createdAt': createdAt.toIso8601String(),
-        'completedAt': completedAt?.toIso8601String(),
-        'customerName': customerName,
-        'phone': phone,
-        'email': email,
-        'address': address,
-        'notes': notes,
-        'total': total,
-        'beforePhotoPath': beforePhotoPath ?? "",
-        'afterPhotoPath': afterPhotoPath ?? "",
-        'attachPhotos': attachPhotos ? 1 : 0,
-        'sendPhotosOnly': sendPhotosOnly ? 1 : 0,
-        'sendEmail': sendEmail ? 1 : 0,
-        'pdfPath': pdfPath ?? "",
-      };
+    'id': id,
+    'status': status,
+    'createdAt': createdAt.toIso8601String(),
+    'completedAt': completedAt?.toIso8601String(),
+    'customerName': customerName,
+    'phone': phone,
+    'email': email,
+    'address': address,
+    'notes': notes,
+    'total': total,
+    'beforePhotoPath': beforePhotoPath ?? "",
+    'afterPhotoPath': afterPhotoPath ?? "",
+    'attachPhotos': attachPhotos ? 1 : 0,
+    'sendPhotosOnly': sendPhotosOnly ? 1 : 0,
+    'sendEmail': sendEmail ? 1 : 0,
+    'pdfPath': pdfPath ?? "",
+    'services': services.map((e) => e.toMap()).toList(),
+  };
 
   static WorkItem fromMap(Map<String, dynamic> m) {
     DateTime? parseDT(dynamic v) {
@@ -122,6 +129,11 @@ WorkItem copyWith({
       sendPhotosOnly: parseBool(m['sendPhotosOnly']),
       sendEmail: parseBool(m['sendEmail']),
       pdfPath: m['pdfPath'],
+      services:
+          (m['services'] as List?)
+              ?.map((s) => ServiceItem.fromMap(s))
+              .toList() ??
+          [],
     );
   }
 
@@ -131,19 +143,20 @@ WorkItem copyWith({
   factory WorkItem.fromJson(Map<String, dynamic> json) {
     double total = 0;
 
-    if (json['services'] is List) {
-      for (final s in json['services']) {
-        final qty = (s['quantity'] ?? 1) as num;
-        final price = (s['unit_price'] ?? 0) as num;
-        total += qty * price;
-      }
+    final List<ServiceItem> services =
+        (json['services'] as List?)
+            ?.map((s) => ServiceItem.fromJson(s))
+            .toList() ??
+        [];
+
+    for (final s in services) {
+      total += s.amount;
     }
 
     return WorkItem(
       id: (json['task_id'] ?? json['id'] ?? '').toString(),
       status: (json['status'] ?? 'ACTIVE').toString().toLowerCase(),
-      createdAt:
-          DateTime.tryParse(json['date'] ?? '') ?? DateTime.now(),
+      createdAt: DateTime.tryParse(json['date'] ?? '') ?? DateTime.now(),
       completedAt: null,
       customerName: json['customer_name'] ?? '',
       phone: json['phone'] ?? '',
@@ -157,6 +170,7 @@ WorkItem copyWith({
       sendPhotosOnly: false,
       sendEmail: false,
       pdfPath: null,
+      services: services,
     );
   }
 }
