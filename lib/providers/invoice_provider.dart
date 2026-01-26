@@ -3,14 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:crm/models/models.dart';
 import '../service_of_providers/invoice_service.dart';
-
+import 'package:crm/services/invoice_pdf_service.dart';
+import 'package:crm/service_of_providers/create_work_item_service.dart';
 class InvoiceProvider extends ChangeNotifier {
   final InvoiceService _service = InvoiceService();
+  final CreateWorkItemService _createWorkItemService = CreateWorkItemService();
+  List<ServiceCatalogItem> _serviceCatalog = [];
   void toggleAttachPhotos(bool value) {
     attachPhotos = value;
     if (!attachPhotos) {
-    sendPhotos = false;
-  }
+      sendPhotos = false;
+    }
     notifyListeners();
   }
 
@@ -18,10 +21,12 @@ class InvoiceProvider extends ChangeNotifier {
     sendEmail = value;
     notifyListeners();
   }
- void toggleSendPhotos(bool value){
-  sendPhotos= value;
-  notifyListeners();
- }
+
+  void toggleSendPhotos(bool value) {
+    sendPhotos = value;
+    notifyListeners();
+  }
+
   // =======================
   // State
   // =======================
@@ -31,73 +36,91 @@ class InvoiceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-
-   bool isEditingCustomerInfo = false;
- final TextEditingController customerNameController =
-    TextEditingController();
-final TextEditingController phoneController =
-    TextEditingController();
-final TextEditingController emailController =
-    TextEditingController();
-final TextEditingController addressController =
-    TextEditingController();
-
+  bool isEditingCustomerInfo = false;
+  late TextEditingController customerNameController = TextEditingController();
+  late TextEditingController phoneController = TextEditingController();
+  late TextEditingController emailController = TextEditingController();
+  late TextEditingController addressController = TextEditingController();
   WorkItem? item;
   List<ServiceItem> services = [];
 
   bool loading = true;
   bool completing = false;
   bool readOnly = false;
-  
-  bool sendPhotos =false;
+
+  bool sendPhotos = false;
   bool attachPhotos = true;
   bool sendEmail = false;
-  bool photosEditable= false;
+  bool photosEditable = false;
 
   List<String> beforePhotos = [];
   List<String> afterPhotos = [];
-  
-
 
   static const int maxPhotosPerSection = 20;
-  
+
+  // =======================
+  // Service Catalog
+  // =======================
+  Future<void> _loadServiceCatalog() async {
+    try {
+      _serviceCatalog = await _createWorkItemService.getServiceCatalog();
+      debugPrint('Service Catalog loaded with ${_serviceCatalog.length} items.');
+    } catch (e) {
+      debugPrint('Error loading service catalog: $e');
+    }
+  }
 
   // =======================
   // Load
   // =======================
-  Future<void> load(String workItemId) async {
+  Future<void> loadFromWorkItem({required WorkItem workItem}) async {
     loading = true;
     notifyListeners();
 
-    final result = await _service.loadInvoice(workItemId);
+    try {
+      await _loadServiceCatalog(); // Ensure catalog is loaded
 
-    item = result.item;
-    services = result.services;
-    beforePhotos = List.from(result.beforePhotos);
-    afterPhotos = List.from(result.afterPhotos);
+      final result = await _service.loadFromWorkItem(item: workItem);
 
-    // Initialize controllers when item loads
-   customerNameController.text = item?.customerName ?? '';
-phoneController.text = item?.phone ?? '';
-emailController.text = item?.email ?? '';
-addressController.text = item?.address ?? '';
+      item = result.item;
+      // Enrich services with names from the catalog
+      services = result.services.map((serviceItem) {
+        debugPrint('Processing ServiceItem with ID: ${serviceItem.serviceid}');
+        final catalogItem = _serviceCatalog.firstWhere(
+          (catalog) => catalog.id == serviceItem.serviceid,
+          orElse: () => ServiceCatalogItem(
+            id: serviceItem.serviceid,
+            name: 'Unknown Service',
+            description: '',
+          ), // Fallback
+        );
+        return ServiceItem(
+          serviceid: serviceItem.serviceid,
+          name: catalogItem.name, // Use the name from the catalog
+          amount: serviceItem.amount,
+        );
+      }).toList();
 
+      beforePhotos = List.from(result.beforePhotos);
+      afterPhotos = List.from(result.afterPhotos);
 
-    readOnly = item?.status == 'completed';
-    photosEditable = true;
-    
-     
+      // controllers already exist → just set text
+      customerNameController.text = item?.customerName ?? '';
+      phoneController.text = item?.phone ?? '';
+      emailController.text = item?.email ?? '';
+      addressController.text = item?.address ?? '';
 
-    attachPhotos = item?.attachPhotos ?? true;
-    //sendPhotosOnly = item?.sendPhotosOnly ?? false;
-    sendEmail = item?.email.trim().isNotEmpty ?? false;
-    
-    if(!attachPhotos) sendPhotos =false;
-
-    loading = false;
-    notifyListeners();
+      photosEditable = true;
+      readOnly = item?.status.toLowerCase() == 'completed';
+    } catch (e) {
+      debugPrint('Error loading invoice: $e');
+      item = null;
+      services.clear();
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
   }
-
 
 
   // =======================
@@ -132,7 +155,6 @@ addressController.text = item?.address ?? '';
 
     notifyListeners();
   }
-
 
   // =======================
   // Photos – Gallery
@@ -172,7 +194,7 @@ addressController.text = item?.address ?? '';
   // Photos – Remove
   // =======================
   Future<void> removePhoto({required bool before, required String path}) async {
-    if (item== null || !photosEditable || completing) return;
+    if (item == null || !photosEditable || completing) return;
 
     await _service.removePhoto(path);
 
@@ -262,17 +284,22 @@ addressController.text = item?.address ?? '';
         attachPhotos,
         beforePhotos,
         afterPhotos,
-
       );
 
       // Save PDF
-     final pdfPath= await _service.savePdf(bytes, item!);
+      final pdfPath = await _service.savePdf(bytes, item!);
 
       // Optional email
 
       if (sendEmail) {
         try {
-          await _service.sendEmail(item!, bytes,beforePhotos, afterPhotos, attachPhotos:sendPhotos,);
+          await _service.sendEmail(
+            item!,
+            bytes,
+            beforePhotos,
+            afterPhotos,
+            attachPhotos: sendPhotos,
+          );
         } catch (e) {
           debugPrint("⚠️ Email not available: $e");
           // DO NOT THROW — allow completion to continue
@@ -281,28 +308,34 @@ addressController.text = item?.address ?? '';
 
       // Mark completed in DB
       //final completedAt = DateTime.now();
-      await _service.markCompleted(item!.id.toString());
+     await _service.markCompletedApi(
+  workItemId: item!.id,
+  sendInvoice: sendEmail,
+  sendPictures: sendPhotos,
+);
+
 
       // Update local state ONLY
       item = item!.copyWith(
-        status: 'completed',
-       completedAt: DateTime.now(),
-       attachPhotos: attachPhotos,
-       sendPhotosOnly: sendPhotosOnly,
-       sendEmail: sendEmail,
-       pdfPath: pdfPath,
+        status: 'COMPLETED',
+        completedAt: DateTime.now(),
+        attachPhotos: attachPhotos,
+        sendPhotosOnly: sendPhotosOnly,
+        sendEmail: sendEmail,
+        pdfPath: pdfPath,
       );
-       readOnly= true;
+      readOnly = true;
       photosEditable = true;
     } finally {
       completing = false;
       notifyListeners();
     }
   }
-  void toggleEditCustomerInfo(){
+
+  void toggleEditCustomerInfo() {
     if (item == null || readOnly) return;
     isEditingCustomerInfo = !isEditingCustomerInfo;
-    
+
     if (!isEditingCustomerInfo) {
       // Reset controllers to original values when canceling
       customerNameController.text = item?.customerName ?? '';
@@ -310,20 +343,22 @@ addressController.text = item?.address ?? '';
       emailController.text = item?.email ?? '';
       addressController.text = item?.address ?? '';
     }
-    
+
     notifyListeners();
   }
-  Future<void> saveCustomerInfo() async{
-     if (item == null || !isEditingCustomerInfo) return;
+
+  Future<void> saveCustomerInfo() async {
+    if (item == null || !isEditingCustomerInfo) return;
 
     await _service.updateCustomerInfo(
       workItemId: item!.id.toString(),
       customerName: customerNameController.text.trim(),
       phone: phoneController.text.trim(),
       email: emailController.text.trim(),
-      address: addressController.text.trim(),);
+      address: addressController.text.trim(),
+    );
 
-       // Update local item
+    // Update local item
     item = item!.copyWith(
       customerName: customerNameController.text.trim(),
       phone: phoneController.text.trim(),
@@ -336,9 +371,9 @@ addressController.text = item?.address ?? '';
 
     isEditingCustomerInfo = false;
     notifyListeners();
-  
   }
-   @override
+
+  @override
   void dispose() {
     customerNameController.dispose();
     phoneController.dispose();
