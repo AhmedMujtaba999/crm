@@ -1,40 +1,64 @@
 import 'package:flutter/material.dart';
-import '../service_of_providers/task_create_service.dart';
+import 'package:provider/provider.dart';
 import 'package:crm/models/models.dart';
+import 'package:crm/providers/task_provider.dart';
+import '../service_of_providers/task_create_service.dart';
+import '../service_of_providers/create_work_item_service.dart';
 
 class TaskCreateProvider extends ChangeNotifier {
-  final List<String> servicesCatalog = [
-    'Water Change',
-    'Filter Service',
-    'Pool Cleaning',
-    'Chemical Treatment',
-  ];
+  final CreateWorkItemService _catalogService = CreateWorkItemService();
+  final TaskCreateService _taskService = TaskCreateService();
+
+  List<ServiceCatalogItem> servicesCatalog = [];
+  bool isLoadingCatalog = false;
 
   final List<TaskServiceItem> services = [];
-
-  double get total => services.fold(0, (sum, s) => sum + s.amount);
-
-  void addService(String name, double amount) {
-    if (services.any((s) => s.name == name)) return; // block duplicate
-    services.add(TaskServiceItem(name: name, amount: amount));
-    notifyListeners();
-  }
-
-  void removeService(TaskServiceItem s) {
-    services.remove(s);
-    notifyListeners();
-  }
-
-  final TaskCreateService _service = TaskCreateService();
+String? createdTaskId;
 
   bool saving = false;
   DateTime scheduledAt = DateTime.now();
+
+  TaskCreateProvider() {
+    _loadServiceCatalog();
+  }
+
+  double get total => services.fold(0, (sum, s) => sum + s.amount);
 
   void setDate(DateTime date) {
     scheduledAt = DateTime(date.year, date.month, date.day);
     notifyListeners();
   }
 
+  void addService(ServiceCatalogItem service, double amount) {
+    services.add(
+      TaskServiceItem(
+        id: service.id, // backend service_id
+        taskId: '',
+        name: service.name,
+        amount: amount,
+      ),
+    );
+    notifyListeners();
+  }
+ 
+
+
+  void removeService(TaskServiceItem s) {
+    services.remove(s);
+    notifyListeners();
+  }
+
+  Future<void> _loadServiceCatalog() async {
+    isLoadingCatalog = true;
+    notifyListeners();
+    try {
+      servicesCatalog = await _catalogService.getServiceCatalog();
+    } finally {
+      isLoadingCatalog = false;
+      notifyListeners();
+    }
+  }
+  
   Future<bool> submit({
     required String customerName,
     required String phone,
@@ -45,17 +69,9 @@ class TaskCreateProvider extends ChangeNotifier {
   }) async {
     if (saving) return false;
 
-    //     if (selectedServices.isEmpty) {
-    //   ScaffoldMessenger.of(context).showSnackBar(
-    //     const SnackBar(content: Text("Please select at least one service")),
-    //   );}
-    //   return false;
-    // }
     if (services.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please add at least one service using +"),
-        ),
+        const SnackBar(content: Text("Please add at least one service")),
       );
       return false;
     }
@@ -68,25 +84,62 @@ class TaskCreateProvider extends ChangeNotifier {
           ? services.map((s) => s.name).join(', ')
           : title.trim();
 
-      await _service.createTask(
-        customerName: customerName.trim(),
-        phone: phone.trim(),
-        email: email.trim(),
-        address: address.trim(),
+      // 🔥 Convert UI → API model
+      final apiServices = services.map((s) {
+        return ServiceItem(
+          serviceid: s.id,
+          name: s.name,
+          amount: s.amount,
+        );
+      }).toList();
+
+      // 🔥 CREATE TASK (API)
+      createdTaskId = await _taskService.createTask(
+        customerName: customerName,
+        phone: phone,
+        email: email,
+        address: address,
         title: finalTitle,
         scheduledAt: scheduledAt,
-        services: services,
+        services: apiServices,
       );
+
+      // 🔥 CREATE LOCAL TASK ITEM
+      final newTask = TaskItem(
+        id: createdTaskId!,
+        title: finalTitle,
+        customerName: customerName,
+        phone: phone,
+        email: email,
+        address: address,
+        status: "PENDING",
+        scheduledAt: scheduledAt,
+        services: services
+            .map(
+              (s) => TaskServiceItem(
+                id: s.id,
+                taskId: createdTaskId!,
+                name: s.name,
+                amount: s.amount,
+              ),
+            )
+            .toList(),
+      );
+
+      // 🔥 PUSH TO TASKS SCREEN
+      context.read<TasksProvider>().addTask(newTask);
 
       return true;
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Save failed: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Save failed: $e")),
+      );
       return false;
     } finally {
       saving = false;
       notifyListeners();
     }
   }
+  
 }
+
