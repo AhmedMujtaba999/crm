@@ -22,6 +22,7 @@ class CreateWorkItemService {
 
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
+        print("RAW SERVICE CATALOG DATA: $data");
         return data.map((e) => ServiceCatalogItem.fromJson(e)).toList();
       } else {
         throw Exception('Failed to load services: ${response.statusCode}');
