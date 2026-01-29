@@ -16,10 +16,7 @@ class TasksProvider extends ChangeNotifier {
   Future<void> load() async {
     loading = true;
     notifyListeners();
-
-    await _service.seedIfEmpty();
     _tasks = await _service.listTasks(forDate: filterDate);
-
     loading = false;
     notifyListeners();
   }
@@ -39,4 +36,9 @@ class TasksProvider extends ChangeNotifier {
     _tasks.removeWhere((t) => t.id == task.id);
     notifyListeners();
   }
+
+ void addTask(TaskItem task) {
+  _tasks.insert(0, task); // show on top
+  notifyListeners();
+}
 }
