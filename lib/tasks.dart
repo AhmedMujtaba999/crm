@@ -210,7 +210,30 @@ class _TasksPageState extends State<TasksPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(t.phone, style: const TextStyle(color: Colors.grey)),
+                if (t.email.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(t.email, style: const TextStyle(color: Colors.grey)),
+                ],
+                if (t.address.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(t.address, style: const TextStyle(color: Colors.grey)),
+                ],
                 const SizedBox(height: 10),
+
+                if (t.services.isNotEmpty) ...[
+                  const Text(
+                    "Services:",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 4),
+                  ...t.services.map(
+                    (s) => Text(
+                      '${s.name}: \$${s.amount.toStringAsFixed(2)}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
 
                 Text(
                   "Scheduled $sched",
@@ -302,7 +325,7 @@ class _TasksPageState extends State<TasksPage> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(s.name),
+                                  Text('${s.name} (ID: ${s.id})'),
                                   Text("\$${s.amount.toStringAsFixed(2)}"),
                                 ],
                               ),
