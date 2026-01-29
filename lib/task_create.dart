@@ -1,3 +1,6 @@
+import 'package:crm/models/models.dart';
+import 'package:crm/providers/task_provider.dart';
+import 'package:crm/providers/work_items_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -14,7 +17,7 @@ class CreateTaskPage extends StatefulWidget {
 }
 
 class _CreateTaskPageState extends State<CreateTaskPage> {
-  String? selectedService;
+  ServiceCatalogItem? selectedService;
   final amountC = TextEditingController();
 
   final _formKey = GlobalKey<FormState>();
@@ -49,7 +52,6 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
   Future<void> _save(TaskCreateProvider p) async {
     final ok = _formKey.currentState?.validate() ?? true;
     if (!ok) return;
-
     final success = await p.submit(
       customerName: customerNameC.text,
       phone: phoneC.text,
@@ -58,9 +60,8 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
       title: titleC.text,
       context: context,
     );
-
     if (!mounted || !success) return;
-
+await context.read<TasksProvider>().load();
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text("Task created successfully")));
@@ -69,8 +70,9 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.watch<TaskCreateProvider>();
-    final dateText = DateFormat('EEE, MMM d, y').format(p.scheduledAt);
+    final provider = context.watch<TaskCreateProvider>();
+
+    final dateText = DateFormat('EEE, MMM d, y').format(provider.scheduledAt);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -93,7 +95,7 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
                           _DateSelector(
                             label: "Scheduled Date",
                             value: dateText,
-                            onTap: () => _pickDate(p),
+                            onTap: () => _pickDate(provider),
                           ),
                           const SizedBox(height: 14),
                           CardBox(
@@ -103,8 +105,9 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
                                 Row(
                                   children: [
                                     Expanded(
+                                      // 🔥 THIS IS THE FIX
                                       child: Container(
-                                        height: 52,
+                                        height: 56,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 12,
                                         ),
@@ -113,34 +116,41 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
                                             14,
                                           ),
                                           border: Border.all(
-                                            color: const Color(0xFFE5E7EB),
+                                            color: const Color.fromARGB(255, 43, 47, 54),
                                           ),
                                           color: Colors.white,
                                         ),
                                         child: DropdownButtonHideUnderline(
-                                          child: DropdownButton<String>(
+                                          child: DropdownButton<ServiceCatalogItem>(
                                             value: selectedService,
-                                            isExpanded: true,
-                                            items: context
-                                                .watch<TaskCreateProvider>()
-                                                .servicesCatalog
-                                                .map(
-                                                  (s) => DropdownMenuItem(
-                                                    value: s,
-                                                    child: Text(s),
-                                                  ),
-                                                )
-                                                .toList(),
-                                            onChanged: (v) {
-                                              setState(
-                                                () => selectedService = v,
-                                              );
-                                            },
+                                            isExpanded: true, // ✅ keep this
+                                              menuMaxHeight: 300,
                                             hint: const Text("Select Service"),
+                                            items: provider.servicesCatalog.map((
+                                              service,
+                                            ) {
+                                              return DropdownMenuItem<
+                                                ServiceCatalogItem
+                                              >(
+                                                value: service,
+                                                child: Text(
+                                                  service.name,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow
+                                                      .ellipsis, // ✅ important
+                                                ),
+                                              );
+                                            }).toList(),
+                                            onChanged: (service) {
+                                              setState(() {
+                                                selectedService = service;
+                                              });
+                                            },
                                           ),
                                         ),
                                       ),
                                     ),
+
                                     const SizedBox(width: 10),
                                     SizedBox(
                                       width: 95,
@@ -186,7 +196,6 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
                                               .read<TaskCreateProvider>()
                                               .addService(
                                                 selectedService!,
-
                                                 double.parse(amountC.text),
                                               );
                                           setState(() {
@@ -349,8 +358,8 @@ class _CreateTaskPageState extends State<CreateTaskPage> {
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.all(16),
         child: GradientButton(
-          text: p.saving ? "Creating..." : "Create Task",
-          onTap: p.saving ? null : () => _save(p),
+          text: provider.saving ? "Creating..." : "Create Task",
+          onTap: provider.saving ? null : () => _save(provider),
         ),
       ),
     );
