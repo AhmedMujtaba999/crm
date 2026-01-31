@@ -1,53 +1,103 @@
 import 'dart:convert';
-import 'package:crm/service_of_providers/task_create_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
 import 'package:crm/models/models.dart';
 import 'package:crm/services/auth_session.dart';
 import 'package:crm/config/api_config.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:crm/service_of_providers/task_create_service.dart';
 
 class TasksService {
-
-  /// GET all tasks (PENDING + ACTIVE + scheduled)
-  
-  Future<List<TaskItem>> listTasks({DateTime? forDate}) async {
-  final token = await AuthSession.getToken();
-  final empId = await AuthSession.getEmpId();
-  final res = await http.put(
-    Uri.parse("${ApiConfig.baseUrl}/workertaskui"),
-    headers: {
-      "Authorization": "Bearer $token",
-      "Content-Type": "application/json",
-    },
-    body: jsonEncode({
-      "emp_id": empId,   
-      "status": "pending"     // 🔥 required by backend
-    }),
-  );
-  if (res.statusCode != 200 && res.statusCode != 201) {
-    throw Exception("Failed to load tasks: ${res.body}");
+  String _formatDate(DateTime d) {
+    final yyyy = d.year.toString().padLeft(4, '0');
+    final mm = d.month.toString().padLeft(2, '0');
+    final dd = d.day.toString().padLeft(2, '0');
+    return "$yyyy-$mm-$dd"; // 2024-10-01
   }
-  final decoded = jsonDecode(res.body);
-  // backend may return { data: [...] } or direct list
-  final List list = decoded is List
-      ? decoded
-      : (decoded['data'] ?? decoded['tasks'] ?? []);
-  var tasks = list.map((e) => TaskItem.fromJson(e)).toList();
-  // optional frontend date filter
-  if (forDate != null) {
-    tasks = tasks.where((t) =>
-      t.scheduledAt.year == forDate.year &&
-      t.scheduledAt.month == forDate.month &&
-      t.scheduledAt.day == forDate.day
-    ).toList();
-  }
-  return tasks;
-}
 
-  /// DELETE task
+  Future<List<TaskItem>> listTasks({
+    required DateTime forDate,
+    required String status, // PENDING / ACTIVE / etc
+  }) async {
+    final token = await AuthSession.getToken();
+    final empId = await AuthSession.getEmpId();
+
+    if (token == null || token.isEmpty) {
+      throw Exception("Token missing. Please login again.");
+    }
+    if (empId == null || empId.isEmpty) {
+      throw Exception("empId missing. Please login again.");
+    }
+
+    final dateStr = _formatDate(forDate);
+    final statusStr = status.trim().toUpperCase();
+
+    final url = Uri.parse(
+      "${ApiConfig.baseUrl}/workertaskui/$empId/$dateStr/PENDING",
+    );
+
+    debugPrint("➡️ GET $url");
+
+    final res = await http.get(
+      url,
+      headers: {
+        "Authorization": "Bearer $token",
+        "Content-Type": "application/json",
+      },
+    );
+    debugPrint("✅ STATUS: ${res.statusCode}");
+    debugPrint("✅ BODY: ${res.body}");
+
+    // If backend returns error or HTML, stop here with clear message
+    if (res.statusCode != 200 && res.statusCode != 201) {
+      throw Exception("Failed to load tasks (${res.statusCode}): ${res.body}");
+    }
+
+    final body = res.body.trim();
+    if (body.isEmpty) return [];
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(body);
+    } catch (e) {
+      throw Exception("Response is not valid JSON. Body: $body");
+    }
+
+    List<dynamic> list;
+    if (decoded is List) {
+      list = decoded;
+    } else if (decoded is Map<String, dynamic>) {
+      final data = decoded['data'];
+      final tasks = decoded['tasks'];
+
+      if (data is List) {
+        list = data;
+      } else if (tasks is List) {
+        list = tasks;
+      } else {
+        throw Exception("Unexpected JSON shape: $decoded");
+      }
+    } else {
+      throw Exception("Unexpected response type: ${decoded.runtimeType}");
+    }
+
+    final result = <TaskItem>[];
+    for (final e in list) {
+      try {
+        result.add(TaskItem.fromJson(e));
+      } catch (err) {
+        debugPrint("❌ TaskItem.fromJson failed for item: $e");
+        rethrow;
+      }
+    }
+
+    return result;
+  }
+
   Future<void> deleteTask(String taskId) async {
     final token = await AuthSession.getToken();
+    if (token == null || token.isEmpty) {
+      throw Exception("Token missing. Please login again.");
+    }
 
     final res = await http.delete(
       Uri.parse("${ApiConfig.baseUrl}/workertaskui/$taskId"),
@@ -56,8 +106,8 @@ class TasksService {
       },
     );
 
-    if (res.statusCode != 200) {
-      throw Exception("Delete failed");
+    if (res.statusCode != 200 && res.statusCode != 201) {
+      throw Exception("Delete failed (${res.statusCode}): ${res.body}");
     }
   }
 }
