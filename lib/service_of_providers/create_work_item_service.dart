@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import 'package:crm/models/models.dart';
 
+
 class CreateWorkItemService {
   static const String baseUrl = ApiConfig.baseUrl;
 
@@ -13,7 +14,7 @@ class CreateWorkItemService {
       final token = prefs.getString('auth_token');
 
       final response = await http.get(
-        Uri.parse('$baseUrl${ApiConfig.serviceid}'),
+        Uri.parse('$baseUrl${ApiConfig.getservices}'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -103,9 +104,7 @@ class CreateWorkItemService {
               "quantity": 1,
               "unit_price": service.amount,
             },
-          )
-          .toList();
-
+          ).toList();
       final requestBody = {
         "date": dateStr,
         "task_title": "Work Item - $customerName",
