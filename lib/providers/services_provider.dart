@@ -13,7 +13,7 @@ class ServicesProvider extends ChangeNotifier {
     notifyListeners();
 
     final res = await http.get(
-      Uri.parse(ApiConfig.baseUrl + ApiConfig.serviceid),
+      Uri.parse(ApiConfig.baseUrl + ApiConfig.getservices),
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer YOUR_TOKEN",
