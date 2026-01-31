@@ -155,7 +155,7 @@ class WorkItem {
 
     return WorkItem(
       id: (json['task_id'] ?? json['id'] ?? '').toString(),
-      status: (json['status'] ?? 'ACTIVE').toString().toLowerCase(),
+      status: (json['status'] ?? 'ACTIVE').toString().toUpperCase(),
       createdAt: DateTime.tryParse(json['date'] ?? '') ?? DateTime.now(),
       completedAt: null,
       customerName: json['customer_name'] ?? '',

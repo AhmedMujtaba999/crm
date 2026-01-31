@@ -12,9 +12,9 @@ class HomeShellCounts {
 
 class HomeShellService {
   Future<HomeShellCounts> loadCounts() async {
-    await AppDb.instance.seedTasksIfEmpty();
+   // await AppDb.instance.seedTasksIfEmpty();
 
-    final tasks = await AppDb.instance.listTasks();
+   // final tasks = await AppDb.instance.listTasks();
     final work = await AppDb.instance.listWorkItemsByStatus('active');
 
     final today = DateTime.now();
@@ -22,11 +22,11 @@ class HomeShellService {
     bool isSameDay(DateTime a, DateTime b) =>
         a.year == b.year && a.month == b.month && a.day == b.day;
 
-    final pendingToday =
-        tasks.where((t) => isSameDay(t.scheduledAt, today)).length;
+    // final pendingToday =
+    //     tasks.where((t) => isSameDay(t.scheduledAt, today)).length;
 
     return HomeShellCounts(
-      pendingTasks: pendingToday,
+      pendingTasks: 0,
       activeWorkItems: work.length,
     );
   }

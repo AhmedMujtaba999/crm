@@ -11,7 +11,7 @@ class ServiceCatalogItem {
 
   factory ServiceCatalogItem.fromJson(Map<String, dynamic> json) {
     return ServiceCatalogItem(
-      id: json['id'].toString(),
+      id: (json['id'] ?? '').toString(),
       name: json['name'].toString(),
       description: json['description']?.toString() ?? '',
     );

@@ -18,7 +18,7 @@ class WorkItemsService {
       final dateStr =
           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-      final url = '${ApiConfig.baseUrl}/workertaskui/$empId/$dateStr/active';
+      final url = '${ApiConfig.baseUrl}/workertaskui/$empId/$dateStr/ACTIVE';
 
       final response = await http.get(
         Uri.parse(url),
@@ -35,6 +35,7 @@ class WorkItemsService {
       }
 
       final List data = jsonDecode(response.body);
+      debugPrint('✅ STATUS: ${response.statusCode}');
       debugPrint('Active Work Items API Response: $data');
 
       // ✅ Convert API JSON → WorkItem model
@@ -125,7 +126,7 @@ class WorkItemsService {
       final dateStr =
           '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-      final url = '${ApiConfig.baseUrl}/workertaskui/$empId/$dateStr/completed';
+      final url = '${ApiConfig.baseUrl}/workertaskui/$empId/$dateStr/COMPLETED';
 
       final response = await http.get(
         Uri.parse(url),

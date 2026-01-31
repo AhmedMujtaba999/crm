@@ -176,7 +176,7 @@ class _TasksPageState extends State<TasksPage> {
 
   Widget _taskCard(BuildContext context, TaskItem t) {
     final sched = DateFormat('M/d/y').format(t.scheduledAt);
-
+    final p = context.read<TasksProvider>();
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -210,7 +210,34 @@ class _TasksPageState extends State<TasksPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(t.phone, style: const TextStyle(color: Colors.grey)),
+                
+                if (t.email.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(t.email, style: const TextStyle(color: Colors.grey)),
+                ],
+                const SizedBox(height: 4),
+               // Text(t.address, style: const TextStyle(color: Colors.grey)),
+                if (t.address.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(t.address, style: const TextStyle(color: Colors.grey)),
+                ],
                 const SizedBox(height: 10),
+                if (t.services.isNotEmpty) ...[
+                  const Text(
+                    "Services:",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 4),
+                  ...t.services.map((s) {
+                    final name = p.serviceNameFromCatalog(
+                      s.id, // <-- use your actual id field
+                      fallbackName:
+                          s.name, // if API already sent name, it will use it
+                    );
+                    return Text('$name: \$${s.amount.toStringAsFixed(2)}');
+                  }),
+                  const SizedBox(height: 10),
+                ],
 
                 Text(
                   "Scheduled $sched",
@@ -297,16 +324,29 @@ class _TasksPageState extends State<TasksPage> {
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 6),
-                            ...task.services.map(
-                              (s) => Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(s.name),
-                                  Text("\$${s.amount.toStringAsFixed(2)}"),
-                                ],
-                              ),
-                            ),
+
+                            ...task.services.map((s) {
+                              final name = p.serviceNameFromCatalog(
+                                s.id, // <-- use your actual id field
+                                fallbackName: s
+                                    .name, // if API already sent name, it will use it
+                              );
+                              return Text(
+                                '$name: \$${s.amount.toStringAsFixed(2)}',
+                              );
+                            }),
+
+                            // ...task.services.map(
+                            //    (s)
+                            // { Row(
+                            //   mainAxisAlignment:
+                            //       MainAxisAlignment.spaceBetween,
+                            //   children: [
+                            //     Text('${s.name}'),
+
+                            //     Text("\$${s.amount.toStringAsFixed(2)}"),
+                            //   ],
+                            // );
                           ] else
                             const Text("No services added"),
                         ],
@@ -346,9 +386,7 @@ class _TasksPageState extends State<TasksPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => CreateWorkItemPage(
-                      prefillTask: task,
-                    ),
+                    builder: (_) => CreateWorkItemPage(prefillTask: task),
                   ),
                 );
               },
